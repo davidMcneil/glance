@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+blake3 = "1"
+file-format = "0.22"
+rusqlite = { version = "0.30", features = ["bundled"] }
+time = "0.3"
+walkdir = "2"

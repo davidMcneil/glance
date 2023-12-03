@@ -4,7 +4,7 @@ The quick media viewer.
 
 # glance-lib
 
-The core of glance is an index of media files for quick CRUD and search operations. [sqlite](https://docs.rs/sqlite/latest/sqlite/) is a natural choice for this index but other options could be explored. Potential columns in the index would include:
+The core of glance is an index of media files for quick CRUD and search operations. [sqlite](https://github.com/rusqlite/rusqlite) is a natural choice for this index but other options could be explored. Potential columns in the index would include:
 
 
 * `hash` - hash of the media file to easily check for existence
