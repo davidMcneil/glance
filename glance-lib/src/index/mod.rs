@@ -4,7 +4,7 @@ use std::fs;
 use time::{macros::format_description, OffsetDateTime};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::store::{self, MediaRow};
+use crate::store::{self, media_sql::MediaSql};
 
 #[cfg(test)]
 mod tests;
@@ -17,14 +17,14 @@ impl Index {
             let entry = entry.unwrap();
             if entry.file_type().is_file() {
                 if let Some(new_row) = file_to_media_row(&entry) {
-                    store::insert_row(new_row);
+                    new_row.insert(todo!());
                 }
             }
         }
     }
 }
 
-fn file_to_media_row(entry: &DirEntry) -> Option<MediaRow> {
+fn file_to_media_row(entry: &DirEntry) -> Option<MediaSql> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path).unwrap();
     match format.kind() {
@@ -32,13 +32,13 @@ fn file_to_media_row(entry: &DirEntry) -> Option<MediaRow> {
             let metadata = entry.metadata().unwrap();
             let bytes = fs::read(&path).unwrap();
 
-            let mut row = store::MediaRow {
-                filepath: path.clone(),
+            let mut row = MediaSql {
+                filepath: path.clone().into(),
                 size: metadata.len(),
-                format,
+                format: format.into(),
                 created: None,
                 device: None,
-                hash: blake3::hash(&bytes),
+                hash: blake3::hash(&bytes).into(),
             };
 
             let file = std::fs::File::open(&path).unwrap();

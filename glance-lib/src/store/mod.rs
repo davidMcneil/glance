@@ -1,24 +1,4 @@
-use std::path::PathBuf;
-
-use blake3::Hash;
-use file_format::FileFormat;
-use time::OffsetDateTime;
-
+pub(crate) mod media_sql;
 #[cfg(test)]
 mod tests;
-
-#[derive(Debug)]
-pub(crate) struct MediaRow {
-    pub filepath: PathBuf,
-    pub size: u64,
-    pub format: FileFormat,
-    pub created: Option<OffsetDateTime>,
-    // pub location: (),
-    pub device: Option<String>,
-    // pub iso: (),
-    pub hash: Hash,
-}
-
-pub(crate) fn insert_row(row: MediaRow) {
-    println!("inserting: {:?}", row);
-}
+pub(crate) mod util;
