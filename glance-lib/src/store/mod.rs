@@ -12,9 +12,9 @@ pub(crate) struct MediaRow {
     pub filepath: PathBuf,
     pub size: u64,
     pub format: FileFormat,
-    pub created: OffsetDateTime,
+    pub created: Option<OffsetDateTime>,
     // pub location: (),
-    pub device: String,
+    pub device: Option<String>,
     // pub iso: (),
     pub hash: Hash,
 }

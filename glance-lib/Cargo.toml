@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 blake3 = "1"
 file-format = "0.22"
+kamadak-exif = "0.5.5"
 rusqlite = { version = "0.30", features = ["bundled"] }
-time = "0.3"
+time = {version = "0.3.30", features = ["parsing", "macros"] }
 walkdir = "2"
