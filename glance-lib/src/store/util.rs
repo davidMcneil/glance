@@ -6,7 +6,7 @@ use std::{ffi::OsStr, path::PathBuf};
 use rusqlite::{types::ToSqlOutput, Error, ToSql};
 
 #[derive(Debug, From, Into)]
-pub(crate) struct FileFormatSql(FileFormat);
+pub(crate) struct FileFormatSql(pub FileFormat);
 
 impl ToSql for FileFormatSql {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, Error> {
@@ -15,16 +15,16 @@ impl ToSql for FileFormatSql {
 }
 
 #[derive(Debug, From, Into)]
-pub(crate) struct HashSql(Hash);
+pub(crate) struct HashSql(pub Hash);
 
 impl ToSql for HashSql {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, Error> {
-        Ok(Vec::from(self.0.as_bytes()).into())
+        Ok(self.0.as_bytes().to_vec().into())
     }
 }
 
 #[derive(Debug, From, Into)]
-pub(crate) struct PathBufSql(PathBuf);
+pub(crate) struct PathBufSql(pub PathBuf);
 
 impl ToSql for PathBufSql {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, Error> {
