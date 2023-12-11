@@ -1,30 +1,48 @@
+use core::prelude::rust_2015;
+use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
+use rusqlite::Connection;
 use std::fs;
+use thiserror::Error;
 use time::{macros::format_description, OffsetDateTime};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::store::{self, media_sql::MediaSql};
 
+use self::media::Media;
+
+mod media;
 #[cfg(test)]
 mod tests;
 
-struct Index;
+#[derive(Debug, Error, Display)]
+pub enum Error {
+    /// sql: {:0}
+    Sql(#[from] rusqlite::Error),
+}
+
+pub struct Index {
+    connection: Connection,
+}
 
 impl Index {
-    fn add_directory(root: &str) {
+    pub fn add_directory(&mut self, root: &str) -> Result<(), Error> {
+        let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(root) {
-            let entry = entry.unwrap();
+            let entry = entry.expect("todo");
             if entry.file_type().is_file() {
                 if let Some(new_row) = file_to_media_row(&entry) {
-                    new_row.insert(todo!());
+                    MediaSql::from(new_row).insert(&transaction)?;
                 }
             }
         }
+        transaction.commit()?;
+        Ok(())
     }
 }
 
-fn file_to_media_row(entry: &DirEntry) -> Option<MediaSql> {
+fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path).unwrap();
     match format.kind() {
@@ -32,13 +50,13 @@ fn file_to_media_row(entry: &DirEntry) -> Option<MediaSql> {
             let metadata = entry.metadata().unwrap();
             let bytes = fs::read(&path).unwrap();
 
-            let mut row = MediaSql {
-                filepath: path.clone().into(),
-                size: metadata.len(),
+            let mut row = Media {
+                filepath: path.clone(),
+                size: metadata.len().into(),
                 format: format.into(),
                 created: None,
                 device: None,
-                hash: blake3::hash(&bytes).into(),
+                hash: blake3::hash(&bytes),
             };
 
             let file = std::fs::File::open(&path).unwrap();

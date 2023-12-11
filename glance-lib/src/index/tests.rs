@@ -8,12 +8,9 @@ fn file_to_media_row_test() {
     for entry in WalkDir::new("../test-media/Canon_40D.jpg") {
         let entry = entry.unwrap();
         let media_row = file_to_media_row(&entry).unwrap();
-        assert_eq!(media_row.filepath.0, entry.path());
-        assert_eq!(media_row.size, 7958);
-        assert_eq!(
-            media_row.format.0,
-            FileFormat::JointPhotographicExpertsGroup
-        );
+        assert_eq!(media_row.filepath, entry.path());
+        assert_eq!(media_row.size, 7958.into());
+        assert_eq!(media_row.format, FileFormat::JointPhotographicExpertsGroup);
         assert!(media_row.created.is_some());
     }
 }

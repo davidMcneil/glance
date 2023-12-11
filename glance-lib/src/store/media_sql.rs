@@ -3,6 +3,7 @@ use time::OffsetDateTime;
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
+/// Low level type for interacting with media rows
 #[derive(Debug)]
 pub(crate) struct MediaSql {
     pub filepath: PathBufSql,

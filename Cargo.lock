@@ -759,6 +759,7 @@ dependencies = [
  "file-format",
  "kamadak-exif",
  "rusqlite",
+ "thiserror",
  "time",
  "walkdir",
 ]
