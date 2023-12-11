@@ -1,7 +1,7 @@
 use file_format::FileFormat;
 use walkdir::WalkDir;
 
-use crate::index::file_to_media_row;
+use crate::index::{file_to_media_row, Index};
 
 #[test]
 fn file_to_media_row_test() {
@@ -13,4 +13,12 @@ fn file_to_media_row_test() {
         assert_eq!(media_row.format, FileFormat::JointPhotographicExpertsGroup);
         assert!(media_row.created.is_some());
     }
+}
+
+#[test]
+fn add_directory_test() {
+    let mut index = Index::new();
+    index.add_directory("../test-media").unwrap();
+    let rows = index.get_media();
+    assert_eq!(rows.len(), 5);
 }

@@ -27,6 +27,12 @@ pub struct Index {
 }
 
 impl Index {
+    fn new() -> Self {
+        let connection = Connection::open_in_memory().unwrap();
+        MediaSql::create_table(&connection).unwrap();
+        Self { connection }
+    }
+
     pub fn add_directory(&mut self, root: &str) -> Result<(), Error> {
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(root) {
@@ -39,6 +45,10 @@ impl Index {
         }
         transaction.commit()?;
         Ok(())
+    }
+
+    fn get_media(&self) -> Vec<MediaSql> {
+        MediaSql::get_rows(&self.connection).unwrap()
     }
 }
 
@@ -62,24 +72,27 @@ fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
             let file = std::fs::File::open(&path).unwrap();
             let mut bufreader = std::io::BufReader::new(&file);
             let exifreader = exif::Reader::new();
-            let exif = exifreader.read_from_container(&mut bufreader).unwrap();
-            // for f in exif.fields() {
-            //     println!(
-            //         "{} {} {}",
-            //         f.tag,
-            //         f.ifd_num,
-            //         f.display_value().with_unit(&exif)
-            //     );
-            // }
-            match exif.get_field(Tag::DateTime, In::PRIMARY) {
-                Some(date_taken) => {
-                    let date_taken_string = format!("{} \"+00:00\"", date_taken.display_value());
-                    let format =
+            let exif = exifreader.read_from_container(&mut bufreader);
+            if let Ok(exif) = exif {
+                // for f in exif.fields() {
+                //     println!(
+                //         "{} {} {}",
+                //         f.tag,
+                //         f.ifd_num,
+                //         f.display_value().with_unit(&exif)
+                //     );
+                // }
+                match exif.get_field(Tag::DateTime, In::PRIMARY) {
+                    Some(date_taken) => {
+                        let date_taken_string =
+                            format!("{} \"+00:00\"", date_taken.display_value());
+                        let format =
                     format_description!("[year]-[month]-[day] [hour]:[minute]:[second] \"[offset_hour]:[offset_minute]\"");
-                    let date = OffsetDateTime::parse(&date_taken_string, &format).unwrap();
-                    row.created = Some(date);
+                        let date = OffsetDateTime::parse(&date_taken_string, &format).unwrap();
+                        row.created = Some(date);
+                    }
+                    None => (),
                 }
-                None => (),
             }
             Some(row)
         }

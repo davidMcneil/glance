@@ -5,7 +5,10 @@ use derive_more::{From, Into};
 use file_format::FileFormat;
 use std::{ffi::OsStr, path::PathBuf};
 
-use rusqlite::{types::ToSqlOutput, Error, ToSql};
+use rusqlite::{
+    types::{FromSql, FromSqlResult, ToSqlOutput, ValueRef},
+    Error, ToSql,
+};
 
 #[derive(Debug, From, Into)]
 pub(crate) struct FileFormatSql(pub FileFormat);
@@ -13,6 +16,14 @@ pub(crate) struct FileFormatSql(pub FileFormat);
 impl ToSql for FileFormatSql {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, Error> {
         Ok(self.0.to_string().into())
+    }
+}
+
+impl FromSql for FileFormatSql {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Ok(FileFormatSql(FileFormat::from_bytes(
+            value.as_bytes().unwrap(),
+        )))
     }
 }
 
@@ -25,6 +36,14 @@ impl ToSql for HashSql {
     }
 }
 
+impl FromSql for HashSql {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Ok(HashSql(Hash::from_bytes(
+            value.as_bytes().unwrap().try_into().unwrap(),
+        )))
+    }
+}
+
 #[derive(Debug, From, Into)]
 pub(crate) struct PathBufSql(pub PathBuf);
 
@@ -34,5 +53,11 @@ impl ToSql for PathBufSql {
         <&str>::try_from(v)
             .map(|v| v.into())
             .map_err(|e| Error::ToSqlConversionFailure(e.into()))
+    }
+}
+
+impl FromSql for PathBufSql {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Ok(PathBufSql(PathBuf::from(value.as_str().unwrap())))
     }
 }
