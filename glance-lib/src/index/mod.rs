@@ -47,8 +47,12 @@ impl Index {
         Ok(())
     }
 
-    fn get_media(&self) -> Vec<MediaSql> {
-        MediaSql::get_rows(&self.connection).unwrap()
+    fn get_media(&self) -> Vec<Media> {
+        MediaSql::get_rows(&self.connection)
+            .unwrap()
+            .into_iter()
+            .map(|row| row.into())
+            .collect()
     }
 }
 
