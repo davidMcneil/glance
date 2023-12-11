@@ -21,7 +21,7 @@ pub(crate) struct MediaSql {
 
 #[derive(Debug, Default)]
 pub(crate) struct MediaFilter {
-    pub crated_start: Option<OffsetDateTime>,
+    pub created_start: Option<OffsetDateTime>,
     pub created_end: Option<OffsetDateTime>,
 }
 
@@ -63,7 +63,7 @@ impl MediaSql {
         conn: &'conn Connection,
         filter: MediaFilter,
     ) -> Result<MediaSearch<'conn>, Error> {
-        let statement = match (filter.crated_start, filter.created_end) {
+        let statement = match (filter.created_start, filter.created_end) {
             (Some(_), Some(_)) => conn.prepare(formatcp!(
                 "SELECT {COLUMNS} FROM media \
                     WHERE created >= :created_start \
@@ -117,27 +117,28 @@ impl<'conn> MediaSearch<'conn> {
     }
 
     pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
-        // TODO: not sure how this should best be handled shame we have to match twice would be
-        // better to add the params directly to MediaSearch instead of the filter
-        // let params = match (self.filter.crated_start, self.filter.created_end) {
-        //     (Some(created_start), Some(created_end)) => named_params! {
-        //         ":created_start": created_start,
-        //         ":created_end": created_end,
-        //     },
-        //     (Some(created_start), None) => named_params! {
-        //         ":created_start": created_start,
-        //     },
-        //     (None, Some(created_end)) => named_params! {
-        //         ":created_end": created_end,
-        //     },
-        //     (None, None) => named_params! {},
-        // };
-        let params = named_params! {};
-
+        let params = self.filter.to_params();
         let iter = self
             .statement
-            .query_map(params, |row| MediaSql::try_from(row))?;
+            .query_map(params.as_slice(), |row| MediaSql::try_from(row))?;
         Ok(iter)
+    }
+}
+
+impl MediaFilter {
+    /// Convert the media filters into a type that can impl `Params`.
+    ///
+    /// We cannot impl `Params` directly because it is sealed and we cannot use `named_params`
+    /// because we do not know at compile time which params will be set.
+    fn to_params(&self) -> Vec<(&'static str, &dyn ToSql)> {
+        let mut result = Vec::new();
+        if let Some(created_start) = &self.created_start {
+            result.push((":created_start", created_start as &dyn ToSql))
+        }
+        if let Some(created_end) = &self.created_end {
+            result.push((":created_end", created_end as &dyn ToSql))
+        }
+        result
     }
 }
 
