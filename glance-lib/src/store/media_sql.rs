@@ -82,14 +82,14 @@ impl MediaSql {
                 conn.prepare("SELECT (filepath, size, format, created, device, hash) FROM media \
                     WHERE created >= ? AND created <= ? ORDER BY created",
                 )?,
-            (Some(_), None) =>                
+            (Some(_), None) =>
                 conn.prepare("SELECT (filepath, size, format, created, device, hash) FROM media \
                     WHERE created >= ? ORDER BY created",
-                )?, 
+                )?,
             (None, Some(_)) =>
                 conn.prepare("SELECT (filepath, size, format, created, device, hash) FROM media \
                     WHERE created <= ? ORDER BY created",
-                )?, 
+                )?,
             (_, _) => conn.prepare(
                 "SELECT (filepath, size, format, created, device, hash) FROM media ORDER By created",
                 )?
@@ -115,8 +115,28 @@ impl MediaSql {
 
         Ok(())
     }
+}
 
-    fn try_from_row(row: &Row<'_>) -> Result<MediaSql, Error> {
+impl<'conn> MediaSearch<'conn> {
+    fn new(statement: Statement<'conn>, filter: MediaFilter) -> Self {
+        Self { statement, filter }
+    }
+
+    fn iter(
+        &'conn mut self,
+    ) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + 'conn, Error> {
+        // let params = todo!("map the correct params");
+        let iter = self
+            .statement
+            .query_map([], |row| MediaSql::try_from(row))?;
+        Ok(iter)
+    }
+}
+
+impl TryFrom<&Row<'_>> for MediaSql {
+    type Error = Error;
+
+    fn try_from(row: &Row<'_>) -> Result<Self, Self::Error> {
         Ok(Self {
             filepath: row.get(0)?,
             size: row.get(1)?,
@@ -125,25 +145,5 @@ impl MediaSql {
             device: row.get(4)?,
             hash: row.get(5)?,
         })
-    }
-}
-
-impl<'conn> MediaSearch<'conn> {
-    fn new(statement: Statement<'conn>, filter: MediaFilter) -> Self {
-        Self { statement, filter }
-    }
-
-    fn iter(&'conn mut self) -> Result<impl Iterator<Item = MediaSql> + 'conn, Error> {
-        // let params = todo!("map the correct params");
-        let iter = self
-            .statement
-            .query_map([], |row| Ok(MediaSql::from(row)))?;
-        Ok(iter.map(|r| r.expect("all entries in `MediaSearch` are `Ok`")))
-    }
-}
-
-impl From<&Row<'_>> for MediaSql {
-    fn from(row: &Row) -> Self {
-        Self::try_from_row(row).expect("a valid select for `MediaSql`")
     }
 }
