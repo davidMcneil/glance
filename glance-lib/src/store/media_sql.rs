@@ -50,25 +50,9 @@ impl MediaSql {
     }
 
     pub fn get_rows(conn: &Connection) -> Result<Vec<MediaSql>, Error> {
-        let mut stmt = conn.prepare("SELECT * FROM media")?;
-
-        let rows = stmt.query_map([], |row| {
-            Ok(MediaSql {
-                filepath: row.get(0)?,
-                size: row.get(1)?,
-                format: row.get(2)?,
-                created: row.get(3)?,
-                device: row.get(4)?,
-                hash: row.get(5)?,
-            })
-        })?;
-
-        let mut result = Vec::new();
-        for row in rows {
-            result.push(row?);
-        }
-
-        Ok(result)
+        let mut media_search = Self::open_search(conn)?;
+        let iter = media_search.iter()?;
+        iter.collect()
     }
 
     pub fn open_search<'conn>(conn: &'conn Connection) -> Result<MediaSearch<'conn>, Error> {
@@ -96,12 +80,16 @@ impl MediaSql {
                     WHERE created <= :created_end \
                     ORDER BY created",
             ))?,
-            (_, _) => conn.prepare(formatcp!("SELECT {COLUMNS} FROM media ORDER By created",))?,
+            (_, _) => {
+                // TODO: This should be conn.prepare(formatcp!("SELECT {COLUMNS} FROM media ORDER BY created"))?
+                // but something is messed up
+                conn.prepare(formatcp!("SELECT * FROM media ORDER BY created"))?
+            }
         };
         Ok(MediaSearch { statement, filter })
     }
 
-    pub fn insert(&self, conn: &Connection) -> Result<(), Error> {
+    pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "INSERT INTO media {COLUMNS} \
             VALUES (:filepath, :size, :format, :created, :device, :hash)"
@@ -113,9 +101,14 @@ impl MediaSql {
             ":created": &self.created,
             ":device": &self.device,
             ":hash": self.hash,
-        })?;
+        })
+    }
 
-        Ok(())
+    pub fn exists(&self, conn: &Connection, hash: HashSql) -> Result<bool, Error> {
+        let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
+        stmt.exists(named_params! {
+            ":hash": hash,
+        })
     }
 }
 
@@ -124,12 +117,11 @@ impl<'conn> MediaSearch<'conn> {
         Self { statement, filter }
     }
 
-    pub fn iter(
-        &'conn mut self,
-    ) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + 'conn, Error> {
+    pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
         let params = named_params! {
-            ":created_start": self.filter.crated_start,
-            ":created_end": self.filter.created_end,
+            // TODO: conditionally add these based on the filter
+            // ":created_start": self.filter.crated_start,
+            // ":created_end": self.filter.created_end,
         };
         let iter = self
             .statement
