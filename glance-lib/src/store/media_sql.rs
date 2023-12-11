@@ -1,7 +1,7 @@
 use rusqlite::{named_params, Connection, Error};
 use time::OffsetDateTime;
 
-use super::util::{FileFormatSql, HashSql, PathBufSql};
+use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
 #[derive(Debug)]
 pub(crate) struct MediaSql {

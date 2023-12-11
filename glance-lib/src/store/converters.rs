@@ -1,3 +1,5 @@
+//! Wrapper types for converting from higher level types to sql data types
+
 use blake3::Hash;
 use derive_more::{From, Into};
 use file_format::FileFormat;
