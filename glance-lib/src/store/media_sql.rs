@@ -1,10 +1,10 @@
 use const_format::formatcp;
-use rusqlite::{named_params, Connection, Error, Row, Statement};
+use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 use time::OffsetDateTime;
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
-const COLUMNS: &str = "(filepath, size, format, created, device, hash)";
+const COLUMNS: &str = "filepath, size, format, created, device, hash";
 
 /// Low level type for interacting with media rows
 #[derive(Debug)]
@@ -80,18 +80,17 @@ impl MediaSql {
                     WHERE created <= :created_end \
                     ORDER BY created",
             ))?,
-            (_, _) => {
-                // TODO: This should be conn.prepare(formatcp!("SELECT {COLUMNS} FROM media ORDER BY created"))?
-                // but something is messed up
-                conn.prepare(formatcp!("SELECT * FROM media ORDER BY created"))?
-            }
+            (None, None) => conn.prepare(formatcp!(
+                "SELECT {COLUMNS} FROM media \
+                    ORDER BY created"
+            ))?,
         };
         Ok(MediaSearch { statement, filter })
     }
 
     pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare(formatcp!(
-            "INSERT INTO media {COLUMNS} \
+            "INSERT INTO media ({COLUMNS}) \
             VALUES (:filepath, :size, :format, :created, :device, :hash)"
         ))?;
         stmt.insert(named_params! {
@@ -118,11 +117,23 @@ impl<'conn> MediaSearch<'conn> {
     }
 
     pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
-        let params = named_params! {
-            // TODO: conditionally add these based on the filter
-            // ":created_start": self.filter.crated_start,
-            // ":created_end": self.filter.created_end,
-        };
+        // TODO: not sure how this should best be handled shame we have to match twice would be
+        // better to add the params directly to MediaSearch instead of the filter
+        // let params = match (self.filter.crated_start, self.filter.created_end) {
+        //     (Some(created_start), Some(created_end)) => named_params! {
+        //         ":created_start": created_start,
+        //         ":created_end": created_end,
+        //     },
+        //     (Some(created_start), None) => named_params! {
+        //         ":created_start": created_start,
+        //     },
+        //     (None, Some(created_end)) => named_params! {
+        //         ":created_end": created_end,
+        //     },
+        //     (None, None) => named_params! {},
+        // };
+        let params = named_params! {};
+
         let iter = self
             .statement
             .query_map(params, |row| MediaSql::try_from(row))?;
