@@ -1,4 +1,3 @@
-use core::prelude::rust_2015;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
@@ -8,7 +7,7 @@ use thiserror::Error;
 use time::{macros::format_description, OffsetDateTime};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::store::{self, media_sql::MediaSql};
+use crate::store::media_sql::MediaSql;
 
 use self::media::Media;
 
