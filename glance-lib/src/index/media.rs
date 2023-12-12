@@ -7,7 +7,7 @@ use file_format::FileFormat;
 
 use crate::store::media_sql::MediaSql;
 
-#[derive(Debug, Into, From)]
+#[derive(Debug, Into, From, PartialEq, Eq)]
 pub struct Device(String);
 
 #[derive(Debug, Into, From, PartialEq, Eq)]

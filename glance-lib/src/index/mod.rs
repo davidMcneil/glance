@@ -10,7 +10,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::store::media_sql::MediaSql;
 
-use self::media::Media;
+use self::media::{Device, Media};
 
 mod media;
 #[cfg(test)]
@@ -94,6 +94,13 @@ fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, std::io::Error> 
                         if let Ok(date_taken) = parse(&date_taken_string) {
                             row.created = Some(date_taken);
                         }
+                    }
+                    None => (),
+                }
+                match exif.get_field(Tag::Model, In::PRIMARY) {
+                    Some(model) => {
+                        let model_string = format!("{}", model.display_value());
+                        row.device = Some(Device::from(model_string));
                     }
                     None => (),
                 }
