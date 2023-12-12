@@ -1,9 +1,10 @@
+use std::fs;
+
 use dateparser::parse;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
 use rusqlite::Connection;
-use std::fs;
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
@@ -27,8 +28,8 @@ pub struct Index {
 
 impl Index {
     fn new() -> Self {
-        let connection = Connection::open_in_memory().unwrap();
-        MediaSql::create_table(&connection).unwrap();
+        let connection = Connection::open_in_memory().expect("able to open in memory connection");
+        MediaSql::create_table(&connection).expect("able to create table");
         Self { connection }
     }
 
@@ -37,8 +38,18 @@ impl Index {
         for entry in WalkDir::new(root) {
             let entry = entry.expect("todo");
             if entry.file_type().is_file() {
-                if let Some(new_row) = file_to_media_row(&entry) {
-                    MediaSql::from(new_row).insert(&transaction)?;
+                match file_to_media_row(&entry) {
+                    Ok(Some(new_row)) => {
+                        MediaSql::from(new_row).insert(&transaction)?;
+                    }
+                    Ok(None) => (),
+                    Err(e) => {
+                        eprintln!(
+                            "failed to process file {}: {}",
+                            entry.path().display(),
+                            e.to_string()
+                        )
+                    }
                 }
             }
         }
@@ -55,13 +66,13 @@ impl Index {
     }
 }
 
-fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
+fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, std::io::Error> {
     let path = entry.path().to_path_buf();
-    let format = FileFormat::from_file(&path).unwrap();
+    let format = FileFormat::from_file(&path)?;
     match format.kind() {
         Kind::Image | Kind::Video => {
-            let metadata = entry.metadata().unwrap();
-            let bytes = fs::read(&path).unwrap();
+            let metadata = entry.metadata()?;
+            let bytes = fs::read(&path)?;
 
             let mut row = Media {
                 filepath: path.clone(),
@@ -72,19 +83,11 @@ fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
                 hash: blake3::hash(&bytes),
             };
 
-            let file = std::fs::File::open(&path).unwrap();
+            let file = std::fs::File::open(&path)?;
             let mut bufreader = std::io::BufReader::new(&file);
             let exifreader = exif::Reader::new();
             let exif = exifreader.read_from_container(&mut bufreader);
             if let Ok(exif) = exif {
-                // for f in exif.fields() {
-                //     println!(
-                //         "{} {} {}",
-                //         f.tag,
-                //         f.ifd_num,
-                //         f.display_value().with_unit(&exif)
-                //     );
-                // }
                 match exif.get_field(Tag::DateTime, In::PRIMARY) {
                     Some(date_taken) => {
                         let date_taken_string = format!("{}", date_taken.display_value());
@@ -95,8 +98,8 @@ fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
                     None => (),
                 }
             }
-            Some(row)
+            Ok(Some(row))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
