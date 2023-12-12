@@ -1,8 +1,7 @@
 use const_format::formatcp;
 use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
-use time::OffsetDateTime;
 
-use super::converters::{FileFormatSql, HashSql, PathBufSql};
+use super::converters::{DateTimeSql, FileFormatSql, HashSql, PathBufSql};
 
 const COLUMNS: &str = "filepath, size, format, created, device, hash";
 
@@ -12,7 +11,7 @@ pub(crate) struct MediaSql {
     pub filepath: PathBufSql,
     pub size: u64,
     pub format: FileFormatSql,
-    pub created: Option<OffsetDateTime>,
+    pub created: Option<DateTimeSql>,
     // pub location: (),
     pub device: Option<String>,
     // pub iso: (),
@@ -21,8 +20,8 @@ pub(crate) struct MediaSql {
 
 #[derive(Debug, Default)]
 pub(crate) struct MediaFilter {
-    pub created_start: Option<OffsetDateTime>,
-    pub created_end: Option<OffsetDateTime>,
+    pub created_start: Option<DateTimeSql>,
+    pub created_end: Option<DateTimeSql>,
 }
 
 pub(crate) struct MediaSearch<'conn> {
@@ -63,7 +62,7 @@ impl MediaSql {
         conn: &'conn Connection,
         filter: MediaFilter,
     ) -> Result<MediaSearch<'conn>, Error> {
-        let statement = match (filter.created_start, filter.created_end) {
+        let statement = match (&filter.created_start, &filter.created_end) {
             (Some(_), Some(_)) => conn.prepare(formatcp!(
                 "SELECT {COLUMNS} FROM media \
                     WHERE created >= :created_start \

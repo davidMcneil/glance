@@ -1,10 +1,10 @@
+use dateparser::parse;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
 use rusqlite::Connection;
 use std::fs;
 use thiserror::Error;
-use time::{macros::format_description, OffsetDateTime};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::store::media_sql::MediaSql;
@@ -87,12 +87,10 @@ fn file_to_media_row(entry: &DirEntry) -> Option<Media> {
                 // }
                 match exif.get_field(Tag::DateTime, In::PRIMARY) {
                     Some(date_taken) => {
-                        let date_taken_string =
-                            format!("{} \"+00:00\"", date_taken.display_value());
-                        let format =
-                    format_description!("[year]-[month]-[day] [hour]:[minute]:[second] \"[offset_hour]:[offset_minute]\"");
-                        let date = OffsetDateTime::parse(&date_taken_string, &format).unwrap();
-                        row.created = Some(date);
+                        let date_taken_string = format!("{}", date_taken.display_value());
+                        if let Ok(date_taken) = parse(&date_taken_string) {
+                            row.created = Some(date_taken);
+                        }
                     }
                     None => (),
                 }

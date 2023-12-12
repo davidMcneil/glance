@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use blake3::Hash;
+use chrono::{DateTime, Utc};
 use derive_more::{From, Into};
 use file_format::FileFormat;
-use time::OffsetDateTime;
 
 use crate::store::media_sql::MediaSql;
 
@@ -18,7 +18,7 @@ pub(crate) struct Media {
     pub filepath: PathBuf,
     pub size: Size,
     pub format: FileFormat,
-    pub created: Option<OffsetDateTime>,
+    pub created: Option<DateTime<Utc>>,
     // pub location: (),
     pub device: Option<Device>,
     // pub iso: (),
@@ -31,7 +31,7 @@ impl From<MediaSql> for Media {
             filepath: value.filepath.into(),
             size: value.size.into(),
             format: value.format.into(),
-            created: value.created.into(),
+            created: value.created.map(|c| c.into()),
             device: value.device.map(|d| d.into()),
             hash: value.hash.into(),
         }
@@ -44,7 +44,7 @@ impl From<Media> for MediaSql {
             filepath: value.filepath.into(),
             size: value.size.into(),
             format: value.format.into(),
-            created: value.created.into(),
+            created: value.created.map(|c| c.into()),
             device: value.device.map(|d| d.into()),
             hash: value.hash.into(),
         }
