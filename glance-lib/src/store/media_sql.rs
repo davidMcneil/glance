@@ -1,7 +1,8 @@
+use chrono::{DateTime, Utc};
 use const_format::formatcp;
 use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 
-use super::converters::{DateTimeSql, FileFormatSql, HashSql, PathBufSql};
+use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
 const COLUMNS: &str = "filepath, size, format, created, device, hash";
 
@@ -11,7 +12,7 @@ pub(crate) struct MediaSql {
     pub filepath: PathBufSql,
     pub size: u64,
     pub format: FileFormatSql,
-    pub created: Option<DateTimeSql>,
+    pub created: Option<DateTime<Utc>>,
     // pub location: (),
     pub device: Option<String>,
     // pub iso: (),
@@ -20,8 +21,8 @@ pub(crate) struct MediaSql {
 
 #[derive(Debug, Default)]
 pub(crate) struct MediaFilter {
-    pub created_start: Option<DateTimeSql>,
-    pub created_end: Option<DateTimeSql>,
+    pub created_start: Option<DateTime<Utc>>,
+    pub created_end: Option<DateTime<Utc>>,
 }
 
 pub(crate) struct MediaSearch<'conn> {
