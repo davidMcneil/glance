@@ -46,6 +46,7 @@ impl MediaSql {
             CREATE INDEX hash_index ON media (hash);",
             [],
         )?;
+        conn.execute("CREATE INDEX hash_index ON media (hash);", [])?;
         Ok(())
     }
 
