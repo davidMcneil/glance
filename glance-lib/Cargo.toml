@@ -9,7 +9,7 @@ const_format = "0.2"
 derive_more = { version = "1.0.0-beta.6", features = ["full"] }
 file-format = "0.23"
 kamadak-exif = "0.5.5"
-rusqlite = { version = "0.30", features = ["bundled", "chrono"] }
+rusqlite = { version = "0.30", features = ["bundled", "chrono", "backup"] }
 thiserror = "1"
 chrono = "0.4.31"
 dateparser = "0.2.1"

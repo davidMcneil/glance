@@ -4,7 +4,7 @@ use dateparser::parse;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
-use rusqlite::Connection;
+use rusqlite::{Connection, MAIN_DB};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
@@ -63,6 +63,12 @@ impl Index {
             .into_iter()
             .map(|row| row.into())
             .collect()
+    }
+
+    fn backup(&self, dst_path: &str) {
+        self.connection
+            .backup(MAIN_DB, dst_path, None)
+            .expect("to be able to backup db")
     }
 }
 
