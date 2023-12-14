@@ -12,7 +12,7 @@ use crate::store::media_sql::MediaSql;
 
 use self::media::{Device, Media};
 
-mod media;
+pub mod media;
 #[cfg(test)]
 mod tests;
 
@@ -26,8 +26,14 @@ pub struct Index {
     connection: Connection,
 }
 
+impl Default for Index {
+    fn default() -> Self {
+        Index::new()
+    }
+}
+
 impl Index {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let connection = Connection::open_in_memory().expect("able to open in memory connection");
         MediaSql::create_table(&connection).expect("able to create table");
         Self { connection }
@@ -57,7 +63,7 @@ impl Index {
         Ok(())
     }
 
-    fn get_media(&self) -> Vec<Media> {
+    pub fn get_media(&self) -> Vec<Media> {
         MediaSql::get_rows(&self.connection)
             .unwrap()
             .into_iter()

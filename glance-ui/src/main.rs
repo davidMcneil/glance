@@ -1,71 +1,93 @@
+use glance_lib::index::media::Media;
+use glance_lib::index::Index;
 use iced::executor;
-use iced::widget::{button, column, container};
-use iced::window;
-use iced::{Alignment, Application, Command, Element, Length, Settings, Theme};
+use iced::widget::{button, column, container, image, row};
+use iced::{Application, Command, Element, Settings, Theme};
 
 pub fn main() -> iced::Result {
-    Exit::run(Settings::default())
+    GlanceUI::run(Settings::default())
 }
 
 #[derive(Default)]
-struct Exit {
-    show_confirm: bool,
+struct GlanceUI {
+    media_vec: Vec<Media>,
+    current_media_idx: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
-    Confirm,
-    Exit,
+    NextImage,
+    PreviousImage,
 }
 
-impl Application for Exit {
+impl Application for GlanceUI {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        (Self::default(), Command::none())
+        let mut index = Index::new();
+        index
+            .add_directory("../test-media")
+            .expect("to be able to add directory");
+        let media_vec = index.get_media();
+        let current_media_idx = if media_vec.len() > 0 { Some(0) } else { None };
+        (
+            Self {
+                media_vec,
+                current_media_idx,
+            },
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
-        String::from("Exit - Iced")
+        String::from("Glance")
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::Confirm => window::close(),
-            Message::Exit => {
-                self.show_confirm = true;
-
-                Command::none()
+            Message::NextImage => {
+                self.current_media_idx = self.current_media_idx.map(|idx| {
+                    if idx == self.media_vec.len() - 1 {
+                        idx
+                    } else {
+                        idx + 1
+                    }
+                });
             }
-        }
+            Message::PreviousImage => {
+                self.current_media_idx =
+                    self.current_media_idx
+                        .map(|idx| if idx == 0 { 0 } else { idx - 1 });
+            }
+        };
+        Command::none()
     }
 
     fn view(&self) -> Element<Message> {
-        let content = if self.show_confirm {
-            column![
-                "Are you sure you want to exit?",
-                button("Yes, exit now")
-                    .padding([10, 20])
-                    .on_press(Message::Confirm),
-            ]
-        } else {
-            column![
-                "Click the button to exit",
-                button("Exit").padding([10, 20]).on_press(Message::Exit),
-            ]
-        }
-        .spacing(10)
-        .align_items(Alignment::Center);
+        let buttons = row![
+            button("Previous")
+                .padding([10, 20])
+                .on_press(Message::PreviousImage),
+            button("Next")
+                .padding([10, 20])
+                .on_press(Message::NextImage)
+        ]
+        .spacing(10);
 
-        container(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(20)
-            .center_x()
-            .center_y()
-            .into()
+        let mut contents = column![buttons];
+        if let Some(idx) = self.current_media_idx {
+            let path = &self
+                .media_vec
+                .get(idx)
+                .expect("to have media at this index")
+                .filepath;
+            let image = image(format!("{}", path.display()));
+            contents = contents.push(image);
+        }
+
+        container(contents).padding(20).into()
     }
 }

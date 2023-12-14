@@ -14,7 +14,7 @@ pub struct Device(String);
 pub struct Size(u64);
 
 #[derive(Debug)]
-pub(crate) struct Media {
+pub struct Media {
     pub filepath: PathBuf,
     pub size: Size,
     pub format: FileFormat,
