@@ -59,10 +59,6 @@ impl ToSql for PathBufSql {
 
 impl FromSql for PathBufSql {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        Ok(PathBufSql(PathBuf::from(
-            value
-                .as_str()
-                .map_err(|e| FromSqlError::Other(Box::new(e)))?,
-        )))
+        Ok(PathBufSql(PathBuf::from(value.as_str()?)))
     }
 }

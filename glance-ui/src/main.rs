@@ -34,7 +34,7 @@ impl Application for GlanceUi {
             .add_directory("../test-media")
             .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
-        let current_media_idx = if media_vec.is_empty() { Some(0) } else { None };
+        let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
         (
             Self {
                 media_vec,
