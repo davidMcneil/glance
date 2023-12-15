@@ -1,15 +1,17 @@
+use anyhow::Result;
 use glance_lib::index::media::Media;
 use glance_lib::index::Index;
 use iced::executor;
 use iced::widget::{button, column, container, image, row};
 use iced::{Application, Command, Element, Settings, Theme};
 
-pub fn main() -> iced::Result {
-    GlanceUI::run(Settings::default())
+pub fn main() -> Result<()> {
+    GlanceUi::run(Settings::default())?;
+    Ok(())
 }
 
 #[derive(Default)]
-struct GlanceUI {
+struct GlanceUi {
     media_vec: Vec<Media>,
     current_media_idx: Option<usize>,
 }
@@ -20,18 +22,18 @@ enum Message {
     PreviousImage,
 }
 
-impl Application for GlanceUI {
+impl Application for GlanceUi {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        let mut index = Index::new();
+        let mut index = Index::new_in_memory().expect("unable to initialize index");
         index
             .add_directory("../test-media")
             .expect("to be able to add directory");
-        let media_vec = index.get_media();
+        let media_vec = index.get_media().expect("get media to work");
         let current_media_idx = if media_vec.len() > 0 { Some(0) } else { None };
         (
             Self {

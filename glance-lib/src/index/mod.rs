@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use dateparser::parse;
 use derive_more::Display;
@@ -18,31 +18,36 @@ mod tests;
 
 #[derive(Debug, Error, Display)]
 pub enum Error {
-    /// sql: {:0}
-    Sql(#[from] rusqlite::Error),
+    /// rusqlite: {:0}
+    Rusqlite(#[from] rusqlite::Error),
+    /// walkdir: {:0}
+    Walkdir(#[from] walkdir::Error),
 }
 
 pub struct Index {
     connection: Connection,
 }
 
-impl Default for Index {
-    fn default() -> Self {
-        Index::new()
-    }
-}
-
 impl Index {
-    pub fn new() -> Self {
-        let connection = Connection::open_in_memory().expect("able to open in memory connection");
-        MediaSql::create_table(&connection).expect("able to create table");
-        Self { connection }
+    pub fn new(path: &Path) -> Result<Self, Error> {
+        let connection = Connection::open(path)?;
+        Self::new_impl(connection)
+    }
+
+    pub fn new_in_memory() -> Result<Self, Error> {
+        let connection = Connection::open_in_memory()?;
+        Self::new_impl(connection)
+    }
+
+    fn new_impl(connection: Connection) -> Result<Self, Error> {
+        MediaSql::create_table(&connection)?;
+        Ok(Self { connection })
     }
 
     pub fn add_directory(&mut self, root: &str) -> Result<(), Error> {
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(root) {
-            let entry = entry.expect("todo");
+            let entry = entry?;
             if entry.file_type().is_file() {
                 match file_to_media_row(&entry) {
                     Ok(Some(new_row)) => {
@@ -63,18 +68,16 @@ impl Index {
         Ok(())
     }
 
-    pub fn get_media(&self) -> Vec<Media> {
-        MediaSql::get_rows(&self.connection)
-            .unwrap()
+    pub fn get_media(&self) -> Result<Vec<Media>, Error> {
+        Ok(MediaSql::get_rows(&self.connection)?
             .into_iter()
             .map(|row| row.into())
-            .collect()
+            .collect())
     }
 
-    fn backup(&self, dst_path: &str) {
-        self.connection
-            .backup(MAIN_DB, dst_path, None)
-            .expect("to be able to backup db")
+    fn backup(&self, dst_path: &str) -> Result<(), Error> {
+        self.connection.backup(MAIN_DB, dst_path, None)?;
+        Ok(())
     }
 }
 

@@ -113,10 +113,6 @@ impl MediaSql {
 }
 
 impl<'conn> MediaSearch<'conn> {
-    fn new(statement: Statement<'conn>, filter: MediaFilter) -> Self {
-        Self { statement, filter }
-    }
-
     pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
         let params = self.filter.to_params();
         let iter = self
