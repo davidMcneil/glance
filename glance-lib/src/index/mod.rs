@@ -4,7 +4,7 @@ use dateparser::parse;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
-use rusqlite::{Connection, MAIN_DB};
+use rusqlite::Connection;
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
@@ -29,7 +29,7 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn new(path: &Path) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let connection = Connection::open(path)?;
         Self::new_impl(connection)
     }
@@ -37,6 +37,25 @@ impl Index {
     pub fn new_in_memory() -> Result<Self, Error> {
         let connection = Connection::open_in_memory()?;
         Self::new_impl(connection)
+    }
+
+    /// Create a new index and store its db at `test-dbs/<test>.db`
+    #[cfg(test)]
+    pub fn new_for_test(test: &str) -> Result<Self, Error> {
+        let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let path = crate_root.join("test-dbs");
+        if !path.exists() {
+            fs::create_dir_all(&path).expect("create dir all");
+        }
+
+        let mut path = path.join(test);
+        path.set_extension("db");
+        if path.exists() {
+            fs::remove_file(&path).expect("remove file");
+        }
+
+        Self::new(path)
     }
 
     fn new_impl(connection: Connection) -> Result<Self, Error> {
@@ -69,11 +88,6 @@ impl Index {
             .into_iter()
             .map(|row| row.into())
             .collect())
-    }
-
-    fn backup(&self, dst_path: &str) -> Result<(), Error> {
-        self.connection.backup(MAIN_DB, dst_path, None)?;
-        Ok(())
     }
 }
 

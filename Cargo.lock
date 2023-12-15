@@ -917,6 +917,7 @@ dependencies = [
  "dateparser",
  "derive_more",
  "file-format",
+ "glance-util",
  "kamadak-exif",
  "rusqlite",
  "thiserror",
@@ -931,6 +932,10 @@ dependencies = [
  "glance-lib",
  "iced",
 ]
+
+[[package]]
+name = "glance-util"
+version = "0.1.0"
 
 [[package]]
 name = "glow"

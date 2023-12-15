@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use file_format::FileFormat;
+use glance_util::function;
 use walkdir::WalkDir;
 
 use crate::index::{file_to_media_row, media::Device, Index};
@@ -23,10 +24,9 @@ fn file_to_media_row_test() -> Result<()> {
 
 #[test]
 fn add_directory_test() -> Result<()> {
-    let mut index = Index::new_in_memory()?;
+    let mut index = Index::new_for_test(function!())?;
     index.add_directory("../test-media")?;
     let rows = index.get_media()?;
     assert_eq!(rows.len(), 5);
-    index.backup("test.db")?;
     Ok(())
 }
