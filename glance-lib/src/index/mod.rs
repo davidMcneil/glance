@@ -55,11 +55,7 @@ impl Index {
                     }
                     Ok(None) => (),
                     Err(e) => {
-                        eprintln!(
-                            "failed to process file {}: {}",
-                            entry.path().display(),
-                            e.to_string()
-                        )
+                        eprintln!("failed to process file {}: {}", entry.path().display(), e)
                     }
                 }
             }
@@ -92,7 +88,7 @@ fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, std::io::Error> 
             let mut row = Media {
                 filepath: path.clone(),
                 size: metadata.len().into(),
-                format: format.into(),
+                format,
                 created: None,
                 device: None,
                 hash: blake3::hash(&bytes),
@@ -103,21 +99,15 @@ fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, std::io::Error> 
             let exifreader = exif::Reader::new();
             let exif = exifreader.read_from_container(&mut bufreader);
             if let Ok(exif) = exif {
-                match exif.get_field(Tag::DateTime, In::PRIMARY) {
-                    Some(date_taken) => {
-                        let date_taken_string = format!("{}", date_taken.display_value());
-                        if let Ok(date_taken) = parse(&date_taken_string) {
-                            row.created = Some(date_taken);
-                        }
+                if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
+                    let date_taken_string = format!("{}", date_taken.display_value());
+                    if let Ok(date_taken) = parse(&date_taken_string) {
+                        row.created = Some(date_taken);
                     }
-                    None => (),
                 }
-                match exif.get_field(Tag::Model, In::PRIMARY) {
-                    Some(model) => {
-                        let model_string = format!("{}", model.display_value());
-                        row.device = Some(Device::from(model_string));
-                    }
-                    None => (),
+                if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
+                    let model_string = format!("{}", model.display_value());
+                    row.device = Some(Device::from(model_string));
                 }
             }
             Ok(Some(row))

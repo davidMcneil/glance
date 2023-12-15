@@ -31,7 +31,7 @@ impl From<MediaSql> for Media {
             filepath: value.filepath.into(),
             size: value.size.into(),
             format: value.format.into(),
-            created: value.created.map(|c| c.into()),
+            created: value.created,
             device: value.device.map(|d| d.into()),
             hash: value.hash.into(),
         }
@@ -44,7 +44,7 @@ impl From<Media> for MediaSql {
             filepath: value.filepath.into(),
             size: value.size.into(),
             format: value.format.into(),
-            created: value.created.map(|c| c.into()),
+            created: value.created,
             device: value.device.map(|d| d.into()),
             hash: value.hash.into(),
         }

@@ -56,14 +56,11 @@ impl MediaSql {
         iter.collect()
     }
 
-    pub fn open_search<'conn>(conn: &'conn Connection) -> Result<MediaSearch<'conn>, Error> {
+    pub fn open_search(conn: &Connection) -> Result<MediaSearch, Error> {
         Self::search(conn, MediaFilter::default())
     }
 
-    pub fn search<'conn>(
-        conn: &'conn Connection,
-        filter: MediaFilter,
-    ) -> Result<MediaSearch<'conn>, Error> {
+    pub fn search(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
         let statement = match (&filter.created_start, &filter.created_end) {
             (Some(_), Some(_)) => conn.prepare(formatcp!(
                 "SELECT {COLUMNS} FROM media \
