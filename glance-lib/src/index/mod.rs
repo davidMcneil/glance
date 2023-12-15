@@ -18,6 +18,8 @@ mod tests;
 
 #[derive(Debug, Error, Display)]
 pub enum Error {
+    /// io: {:0}
+    Io(#[from] std::io::Error),
     /// rusqlite: {:0}
     Rusqlite(#[from] rusqlite::Error),
     /// walkdir: {:0}
@@ -46,13 +48,14 @@ impl Index {
 
         let path = crate_root.join("test-dbs");
         if !path.exists() {
-            fs::create_dir_all(&path).expect("create dir all");
+            fs::create_dir_all(&path)?;
         }
 
         let mut path = path.join(test);
         path.set_extension("db");
+        // Start with a clean database
         if path.exists() {
-            fs::remove_file(&path).expect("remove file");
+            fs::remove_file(&path)?;
         }
 
         Self::new(path)
@@ -91,7 +94,7 @@ impl Index {
     }
 }
 
-fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, std::io::Error> {
+fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, Error> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path)?;
     match format.kind() {
