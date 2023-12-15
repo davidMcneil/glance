@@ -17,4 +17,5 @@ walkdir = "2"
 
 [dev-dependencies]
 anyhow = "1"
+insta = "1"
 glance-util = {path = "../glance-util"}

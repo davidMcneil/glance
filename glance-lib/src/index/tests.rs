@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use file_format::FileFormat;
 use glance_util::function;
+use insta::assert_debug_snapshot;
 use walkdir::WalkDir;
 
 use crate::index::{file_to_media_row, media::Device, Index};
@@ -26,7 +27,6 @@ fn file_to_media_row_test() -> Result<()> {
 fn add_directory_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
     index.add_directory("../test-media")?;
-    let rows = index.get_media()?;
-    assert_eq!(rows.len(), 5);
+    assert_debug_snapshot!(index.get_media()?);
     Ok(())
 }

@@ -1,0 +1,78 @@
+---
+source: glance-lib/src/index/tests.rs
+expression: index.get_media()?
+---
+[
+    Media {
+        filepath: "../test-media/rust-logo.png",
+        size: Size(
+            34593,
+        ),
+        format: ArbitraryBinaryData,
+        created: None,
+        device: None,
+        hash: Hash(
+            "dce78f6c525b0f932f6e72b256ce409aeb6c7d5681c9963d74362d33d3425627",
+        ),
+    },
+    Media {
+        filepath: "../test-media/images/ferris.png",
+        size: Size(
+            5380,
+        ),
+        format: ArbitraryBinaryData,
+        created: None,
+        device: None,
+        hash: Hash(
+            "09c54d7b9a87a3cf01c490bc72c924049e3dd94b651de7c813d52ca5a7d355b1",
+        ),
+    },
+    Media {
+        filepath: "../test-media/images/ferris.jpg",
+        size: Size(
+            14737,
+        ),
+        format: ArbitraryBinaryData,
+        created: None,
+        device: None,
+        hash: Hash(
+            "d2684d75540d07f3ef1db33c033f67e895ed58e8a0ae46a93a607c0c1d1b575b",
+        ),
+    },
+    Media {
+        filepath: "../test-media/exif-images/Nikon_D70.jpg",
+        size: Size(
+            14034,
+        ),
+        format: ArbitraryBinaryData,
+        created: Some(
+            2008-07-31T15:03:44Z,
+        ),
+        device: Some(
+            Device(
+                "\"NIKON D70\"",
+            ),
+        ),
+        hash: Hash(
+            "098925df4e803ad0f4a831893c221a1d235f39053a62d6ffd23ab5427c1d60ea",
+        ),
+    },
+    Media {
+        filepath: "../test-media/exif-images/Canon_40D.jpg",
+        size: Size(
+            7958,
+        ),
+        format: ArbitraryBinaryData,
+        created: Some(
+            2008-07-31T15:38:11Z,
+        ),
+        device: Some(
+            Device(
+                "\"Canon EOS 40D\"",
+            ),
+        ),
+        hash: Hash(
+            "72baf1c7acb71dc5108bd2503b64e4f6d23d2debf91eff25a7a72de5e848e807",
+        ),
+    },
+]
