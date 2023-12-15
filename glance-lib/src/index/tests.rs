@@ -27,6 +27,8 @@ fn file_to_media_row_test() -> Result<()> {
 fn add_directory_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
     index.add_directory("../test-media")?;
-    assert_debug_snapshot!(index.get_media()?);
+    let mut data = index.get_media()?;
+    data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+    assert_debug_snapshot!(data);
     Ok(())
 }
