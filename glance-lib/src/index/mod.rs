@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
-use dateparser::parse;
+use chrono::Utc;
+use dateparser::parse_with_timezone;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
@@ -118,7 +119,7 @@ fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, Error> {
             if let Ok(exif) = exif {
                 if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
                     let date_taken_string = format!("{}", date_taken.display_value());
-                    if let Ok(date_taken) = parse(&date_taken_string) {
+                    if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
                         row.created = Some(date_taken);
                     }
                 }
