@@ -10,7 +10,7 @@ use rusqlite::{Connection, ErrorCode};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
-use crate::store::media_sql::MediaSql;
+use crate::store::media_sql::{MediaDuplicates, MediaSearch, MediaSql};
 
 use self::media::{Device, Media};
 
@@ -95,10 +95,17 @@ impl Index {
     }
 
     pub fn get_media(&self) -> Result<Vec<Media>, Error> {
-        Ok(MediaSql::get_rows(&self.connection)?
-            .into_iter()
-            .map(|row| row.into())
-            .collect())
+        MediaSearch::new_with_filter_defaults(&self.connection)?
+            .iter()?
+            .map(from_media_sql_result)
+            .collect()
+    }
+
+    pub fn duplicates(&self) -> Result<Vec<Media>, Error> {
+        MediaDuplicates::new(&self.connection)?
+            .iter()?
+            .map(from_media_sql_result)
+            .collect()
     }
 }
 
@@ -184,4 +191,8 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {
+    media_sql.map(|m| m.into()).map_err(|e| e.into())
 }

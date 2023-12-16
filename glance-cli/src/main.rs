@@ -9,17 +9,24 @@ use glance_lib::index::Index;
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path to directory with media contents
-    #[arg(short, long)]
+    #[arg(long)]
     media_path: PathBuf,
     /// Path to save the media db index
-    #[arg(short, long)]
+    #[arg(long)]
     db_path: PathBuf,
+    /// Enable hashing of every file
+    #[arg(long)]
+    enable_hash: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut index = Index::new(args.db_path)?;
-    index.add_directory(args.media_path, false)?;
+    index.add_directory(args.media_path, args.enable_hash)?;
+
+    let duplicates = index.duplicates();
+    println!("{:?}", duplicates);
+
     Ok(())
 }

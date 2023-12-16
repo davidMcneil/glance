@@ -30,6 +30,10 @@ pub(crate) struct MediaSearch<'conn> {
     filter: MediaFilter,
 }
 
+pub(crate) struct MediaDuplicates<'conn> {
+    statement: Statement<'conn>,
+}
+
 impl MediaSql {
     pub fn create_table(conn: &mut Connection) -> Result<(), Error> {
         let transaction = conn.transaction()?;
@@ -42,7 +46,6 @@ impl MediaSql {
                     location TEXT,
                     device TEXT,
                     hash BLOB,
-                    UNIQUE (hash),
                     UNIQUE (filepath)
                 );",
             [],
@@ -50,42 +53,6 @@ impl MediaSql {
         transaction.execute("CREATE INDEX IF NOT EXISTS hash_index ON media (hash);", [])?;
         transaction.commit()?;
         Ok(())
-    }
-
-    pub fn get_rows(conn: &Connection) -> Result<Vec<MediaSql>, Error> {
-        let mut media_search = Self::open_search(conn)?;
-        let iter = media_search.iter()?;
-        iter.collect()
-    }
-
-    pub fn open_search(conn: &Connection) -> Result<MediaSearch, Error> {
-        Self::search(conn, MediaFilter::default())
-    }
-
-    pub fn search(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
-        let statement = match (&filter.created_start, &filter.created_end) {
-            (Some(_), Some(_)) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                        AND created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (Some(_), None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                    ORDER BY created",
-            ))?,
-            (None, Some(_)) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (None, None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    ORDER BY created"
-            ))?,
-        };
-        Ok(MediaSearch { statement, filter })
     }
 
     pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
@@ -113,6 +80,36 @@ impl MediaSql {
 }
 
 impl<'conn> MediaSearch<'conn> {
+    pub fn new(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
+        let statement = match (&filter.created_start, &filter.created_end) {
+            (Some(_), Some(_)) => conn.prepare(formatcp!(
+                "SELECT {COLUMNS} FROM media \
+                    WHERE created >= :created_start \
+                        AND created <= :created_end \
+                    ORDER BY created",
+            ))?,
+            (Some(_), None) => conn.prepare(formatcp!(
+                "SELECT {COLUMNS} FROM media \
+                    WHERE created >= :created_start \
+                    ORDER BY created",
+            ))?,
+            (None, Some(_)) => conn.prepare(formatcp!(
+                "SELECT {COLUMNS} FROM media \
+                    WHERE created <= :created_end \
+                    ORDER BY created",
+            ))?,
+            (None, None) => conn.prepare(formatcp!(
+                "SELECT {COLUMNS} FROM media \
+                    ORDER BY created"
+            ))?,
+        };
+        Ok(MediaSearch { statement, filter })
+    }
+
+    pub fn new_with_filter_defaults(conn: &Connection) -> Result<MediaSearch, Error> {
+        Self::new(conn, MediaFilter::default())
+    }
+
     pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
         let params = self.filter.to_params();
         let iter = self
@@ -136,6 +133,28 @@ impl MediaFilter {
             result.push((":created_end", created_end as &dyn ToSql))
         }
         result
+    }
+}
+
+impl<'conn> MediaDuplicates<'conn> {
+    pub fn new(conn: &'conn Connection) -> Result<MediaDuplicates, Error> {
+        let statement = conn.prepare(
+            "SELECT m.* FROM media m
+                    JOIN (
+                        SELECT hash
+                        FROM media
+                        GROUP BY hash
+                        HAVING COUNT(*) > 1
+                    ) AS duplicates ON m.hash = duplicates.hash;",
+        )?;
+        Ok(Self { statement })
+    }
+
+    pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
+        let iter = self
+            .statement
+            .query_map([], |row| MediaSql::try_from(row))?;
+        Ok(iter)
     }
 }
 
