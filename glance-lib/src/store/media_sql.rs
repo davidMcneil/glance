@@ -31,8 +31,9 @@ pub(crate) struct MediaSearch<'conn> {
 }
 
 impl MediaSql {
-    pub fn create_table(conn: &Connection) -> Result<(), Error> {
-        conn.execute(
+    pub fn create_table(conn: &mut Connection) -> Result<(), Error> {
+        let transaction = conn.transaction()?;
+        transaction.execute(
             "CREATE TABLE IF NOT EXISTS media (
                     filepath TEXT NOT NULL,
                     size INTEGER NOT NULL,
@@ -42,11 +43,11 @@ impl MediaSql {
                     hash BLOB NOT NULL,
                     UNIQUE (hash),
                     UNIQUE (filepath)
-            );
-            CREATE INDEX hash_index ON media (hash);",
+                );",
             [],
         )?;
-        conn.execute("CREATE INDEX hash_index ON media (hash);", [])?;
+        transaction.execute("CREATE INDEX IF NOT EXISTS hash_index ON media (hash);", [])?;
+        transaction.commit()?;
         Ok(())
     }
 

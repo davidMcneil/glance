@@ -62,14 +62,14 @@ impl Index {
         Self::new(path)
     }
 
-    fn new_impl(connection: Connection) -> Result<Self, Error> {
-        MediaSql::create_table(&connection)?;
+    fn new_impl(mut connection: Connection) -> Result<Self, Error> {
+        MediaSql::create_table(&mut connection)?;
         Ok(Self { connection })
     }
 
-    pub fn add_directory(&mut self, root: &str) -> Result<(), Error> {
+    pub fn add_directory<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
         let transaction = self.connection.transaction()?;
-        for entry in WalkDir::new(root) {
+        for entry in WalkDir::new(path) {
             let entry = entry?;
             if entry.file_type().is_file() {
                 match file_to_media_row(&entry) {
