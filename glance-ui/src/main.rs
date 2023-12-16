@@ -1,7 +1,10 @@
+use std::fs;
+
 use anyhow::Result;
 use glance_lib::index::media::Media;
 use glance_lib::index::Index;
 use iced::executor;
+use iced::widget::image::Handle;
 use iced::widget::{button, column, container, image, row};
 use iced::{Application, Command, Element, Settings, Theme};
 
@@ -13,6 +16,7 @@ pub fn main() -> Result<()> {
 #[derive(Default)]
 struct GlanceUi {
     media_vec: Vec<Media>,
+    image_handles: Vec<Handle>,
     current_media_idx: Option<usize>,
 }
 
@@ -34,10 +38,18 @@ impl Application for GlanceUi {
             .add_directory("../test-media", false)
             .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
+        let image_handles = media_vec
+            .iter()
+            .map(|media| {
+                let bytes = fs::read(&media.filepath).unwrap();
+                Handle::from_memory(bytes)
+            })
+            .collect();
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
         (
             Self {
                 media_vec,
+                image_handles,
                 current_media_idx,
             },
             Command::none(),
@@ -81,12 +93,8 @@ impl Application for GlanceUi {
 
         let mut contents = column![buttons];
         if let Some(idx) = self.current_media_idx {
-            let path = &self
-                .media_vec
-                .get(idx)
-                .expect("to have media at this index")
-                .filepath;
-            let image = image(format!("{}", path.display()));
+            let handle = self.image_handles.get(idx).unwrap();
+            let image = image(handle.clone());
             contents = contents.push(image);
         }
 
