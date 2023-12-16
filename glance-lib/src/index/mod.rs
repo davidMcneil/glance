@@ -5,7 +5,7 @@ use dateparser::parse_with_timezone;
 use derive_more::Display;
 use exif::{In, Tag};
 use file_format::{FileFormat, Kind};
-use rusqlite::Connection;
+use rusqlite::{Connection, ErrorCode};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
@@ -74,11 +74,17 @@ impl Index {
             if entry.file_type().is_file() {
                 match file_to_media_row(&entry) {
                     Ok(Some(new_row)) => {
-                        MediaSql::from(new_row).insert(&transaction)?;
+                        let res = MediaSql::from(new_row).insert(&transaction);
+                        if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
+                            if e == ErrorCode::ConstraintViolation {
+                                eprintln!("duplicate file '{}'", entry.path().display());
+                            }
+                        }
+                        res?;
                     }
                     Ok(None) => (),
                     Err(e) => {
-                        eprintln!("failed to process file {}: {}", entry.path().display(), e)
+                        eprintln!("failed to process file '{}': {}", entry.path().display(), e)
                     }
                 }
             }
