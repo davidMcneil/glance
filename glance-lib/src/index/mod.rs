@@ -67,12 +67,12 @@ impl Index {
         Ok(Self { connection })
     }
 
-    pub fn add_directory<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
+    pub fn add_directory<P: AsRef<Path>>(&mut self, path: P, with_hash: bool) -> Result<(), Error> {
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
             if entry.file_type().is_file() {
-                match file_to_media_row(&entry) {
+                match file_to_media_row(&entry, with_hash) {
                     Ok(Some(new_row)) => {
                         let res = MediaSql::from(new_row).insert(&transaction);
                         if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
@@ -101,13 +101,18 @@ impl Index {
     }
 }
 
-fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, Error> {
+fn file_to_media_row(entry: &DirEntry, with_hash: bool) -> Result<Option<Media>, Error> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path)?;
     match format.kind() {
         Kind::Image | Kind::Video => {
             let metadata = entry.metadata()?;
-            let bytes = fs::read(&path)?;
+            let hash = if with_hash {
+                let bytes = fs::read(&path)?;
+                Some(blake3::hash(&bytes))
+            } else {
+                None
+            };
 
             let mut row = Media {
                 filepath: path.clone(),
@@ -115,7 +120,7 @@ fn file_to_media_row(entry: &DirEntry) -> Result<Option<Media>, Error> {
                 format,
                 created: None,
                 device: None,
-                hash: blake3::hash(&bytes),
+                hash,
             };
 
             let file = std::fs::File::open(&path)?;

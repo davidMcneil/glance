@@ -16,7 +16,7 @@ pub(crate) struct MediaSql {
     // pub location: (),
     pub device: Option<String>,
     // pub iso: (),
-    pub hash: HashSql,
+    pub hash: Option<HashSql>,
 }
 
 #[derive(Debug, Default)]
@@ -40,7 +40,7 @@ impl MediaSql {
                     format TEXT NOT NULL,
                     created TEXT,
                     device TEXT,
-                    hash BLOB NOT NULL,
+                    hash BLOB,
                     UNIQUE (hash),
                     UNIQUE (filepath)
                 );",

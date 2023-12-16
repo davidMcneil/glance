@@ -10,7 +10,8 @@ use crate::index::{file_to_media_row, media::Device, Index};
 fn file_to_media_row_test() -> Result<()> {
     for entry in WalkDir::new("../test-media/exif-images/Canon_40D.jpg") {
         let entry = entry?;
-        let media_row = file_to_media_row(&entry)?.ok_or_else(|| anyhow!("should be some"))?;
+        let media_row =
+            file_to_media_row(&entry, true)?.ok_or_else(|| anyhow!("should be some"))?;
         assert_eq!(media_row.filepath, entry.path());
         assert_eq!(media_row.size, 7958.into());
         assert_eq!(media_row.format, FileFormat::JointPhotographicExpertsGroup);
@@ -26,7 +27,7 @@ fn file_to_media_row_test() -> Result<()> {
 #[test]
 fn add_directory_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
-    index.add_directory("../test-media")?;
+    index.add_directory("../test-media", true)?;
     let mut data = index.get_media()?;
     data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
     assert_debug_snapshot!(data);

@@ -17,8 +17,10 @@ expression: data
                 "\"Canon EOS 40D\"",
             ),
         ),
-        hash: Hash(
-            "72baf1c7acb71dc5108bd2503b64e4f6d23d2debf91eff25a7a72de5e848e807",
+        hash: Some(
+            Hash(
+                "72baf1c7acb71dc5108bd2503b64e4f6d23d2debf91eff25a7a72de5e848e807",
+            ),
         ),
     },
     Media {
@@ -35,8 +37,10 @@ expression: data
                 "\"NIKON D70\"",
             ),
         ),
-        hash: Hash(
-            "098925df4e803ad0f4a831893c221a1d235f39053a62d6ffd23ab5427c1d60ea",
+        hash: Some(
+            Hash(
+                "098925df4e803ad0f4a831893c221a1d235f39053a62d6ffd23ab5427c1d60ea",
+            ),
         ),
     },
     Media {
@@ -47,8 +51,10 @@ expression: data
         format: ArbitraryBinaryData,
         created: None,
         device: None,
-        hash: Hash(
-            "d2684d75540d07f3ef1db33c033f67e895ed58e8a0ae46a93a607c0c1d1b575b",
+        hash: Some(
+            Hash(
+                "d2684d75540d07f3ef1db33c033f67e895ed58e8a0ae46a93a607c0c1d1b575b",
+            ),
         ),
     },
     Media {
@@ -59,8 +65,10 @@ expression: data
         format: ArbitraryBinaryData,
         created: None,
         device: None,
-        hash: Hash(
-            "09c54d7b9a87a3cf01c490bc72c924049e3dd94b651de7c813d52ca5a7d355b1",
+        hash: Some(
+            Hash(
+                "09c54d7b9a87a3cf01c490bc72c924049e3dd94b651de7c813d52ca5a7d355b1",
+            ),
         ),
     },
     Media {
@@ -71,8 +79,10 @@ expression: data
         format: ArbitraryBinaryData,
         created: None,
         device: None,
-        hash: Hash(
-            "dce78f6c525b0f932f6e72b256ce409aeb6c7d5681c9963d74362d33d3425627",
+        hash: Some(
+            Hash(
+                "dce78f6c525b0f932f6e72b256ce409aeb6c7d5681c9963d74362d33d3425627",
+            ),
         ),
     },
 ]

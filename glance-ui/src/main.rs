@@ -31,7 +31,7 @@ impl Application for GlanceUi {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         let mut index = Index::new_in_memory().expect("unable to initialize index");
         index
-            .add_directory("../test-media")
+            .add_directory("../test-media", false)
             .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };

@@ -20,6 +20,6 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut index = Index::new(args.db_path)?;
-    index.add_directory(args.media_path)?;
+    index.add_directory(args.media_path, false)?;
     Ok(())
 }
