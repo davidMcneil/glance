@@ -19,7 +19,7 @@ pub struct Media {
     pub size: Size,
     pub format: FileFormat,
     pub created: Option<DateTime<Utc>>,
-    // pub location: (),
+    pub location: Option<String>,
     pub device: Option<Device>,
     // pub iso: (),
     pub hash: Option<Hash>,
@@ -32,6 +32,7 @@ impl From<MediaSql> for Media {
             size: value.size.into(),
             format: value.format.into(),
             created: value.created,
+            location: value.location,
             device: value.device.map(|d| d.into()),
             hash: value.hash.map(|h| h.into()),
         }
@@ -45,6 +46,7 @@ impl From<Media> for MediaSql {
             size: value.size.into(),
             format: value.format.into(),
             created: value.created,
+            location: value.location,
             device: value.device.map(|d| d.into()),
             hash: value.hash.map(|h| h.into()),
         }

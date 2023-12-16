@@ -4,7 +4,7 @@ use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
-const COLUMNS: &str = "filepath, size, format, created, device, hash";
+const COLUMNS: &str = "filepath, size, format, created, location, device, hash";
 
 /// Low level type for interacting with media rows
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub(crate) struct MediaSql {
     pub size: u64,
     pub format: FileFormatSql,
     pub created: Option<DateTime<Utc>>,
-    // pub location: (),
+    pub location: Option<String>,
     pub device: Option<String>,
     // pub iso: (),
     pub hash: Option<HashSql>,
@@ -39,6 +39,7 @@ impl MediaSql {
                     size INTEGER NOT NULL,
                     format TEXT NOT NULL,
                     created TEXT,
+                    location TEXT,
                     device TEXT,
                     hash BLOB,
                     UNIQUE (hash),
@@ -90,13 +91,14 @@ impl MediaSql {
     pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "INSERT INTO media ({COLUMNS}) \
-            VALUES (:filepath, :size, :format, :created, :device, :hash)"
+            VALUES (:filepath, :size, :format, :created, :location, :device, :hash)"
         ))?;
         stmt.insert(named_params! {
             ":filepath": self.filepath,
             ":size": self.size,
             ":format": self.format,
             ":created": &self.created,
+            ":location": &self.location,
             ":device": &self.device,
             ":hash": self.hash,
         })
@@ -146,8 +148,9 @@ impl TryFrom<&Row<'_>> for MediaSql {
             size: row.get(1)?,
             format: row.get(2)?,
             created: row.get(3)?,
-            device: row.get(4)?,
-            hash: row.get(5)?,
+            location: row.get(4)?,
+            device: row.get(5)?,
+            hash: row.get(6)?,
         })
     }
 }

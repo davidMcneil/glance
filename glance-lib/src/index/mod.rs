@@ -3,8 +3,9 @@ use std::{fs, path::Path};
 use chrono::Utc;
 use dateparser::parse_with_timezone;
 use derive_more::Display;
-use exif::{In, Tag};
+use exif::{Exif, In, Rational, Tag, Value};
 use file_format::{FileFormat, Kind};
+use reverse_geocoder::ReverseGeocoder;
 use rusqlite::{Connection, ErrorCode};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
@@ -119,6 +120,7 @@ fn file_to_media_row(entry: &DirEntry, with_hash: bool) -> Result<Option<Media>,
                 size: metadata.len().into(),
                 format,
                 created: None,
+                location: None,
                 device: None,
                 hash,
             };
@@ -138,9 +140,48 @@ fn file_to_media_row(entry: &DirEntry, with_hash: bool) -> Result<Option<Media>,
                     let model_string = format!("{}", model.display_value());
                     row.device = Some(Device::from(model_string));
                 }
+                row.location = get_location_from_exif(&exif);
             }
             Ok(Some(row))
         }
         _ => Ok(None),
+    }
+}
+
+fn get_location_from_exif(exif: &Exif) -> Option<String> {
+    fn to_decimal_degrees(degree_minute_second: &Vec<Rational>, bearing: &str) -> Option<f64> {
+        let degrees = degree_minute_second.get(0)?.num as i32;
+        let minutes = degree_minute_second.get(1)?.num as i32;
+        let seconds =
+            (degree_minute_second.get(2)?.num as f64) / (degree_minute_second.get(2)?.denom as f64);
+        let ddeg: f64 = degrees as f64 + minutes as f64 / 60.0_f64 + seconds as f64 / 3600.0_f64;
+        match bearing {
+            "N" | "E" => Some(ddeg),
+            "S" | "W" => Some(-ddeg),
+            _ => None,
+        }
+    }
+    let latitude = exif.get_field(Tag::GPSLatitude, In::PRIMARY)?;
+    let latitude_ref = exif.get_field(Tag::GPSLatitudeRef, In::PRIMARY)?;
+    let longitude = exif.get_field(Tag::GPSLongitude, In::PRIMARY)?;
+    let longitude_ref = exif.get_field(Tag::GPSLongitudeRef, In::PRIMARY)?;
+    match (
+        &latitude.value,
+        &longitude.value,
+        format!("{}", latitude_ref.display_value()),
+        format!("{}", longitude_ref.display_value()),
+    ) {
+        (Value::Rational(lat_dms), Value::Rational(long_dms), lat_bearing, long_bearing) => {
+            let lat_degrees = to_decimal_degrees(lat_dms, &lat_bearing)?;
+            let long_degrees = to_decimal_degrees(long_dms, &long_bearing)?;
+
+            let geocoder = ReverseGeocoder::new();
+            let search_result = geocoder.search((lat_degrees, long_degrees));
+            return Some(format!(
+                "{}, {}",
+                search_result.record.name, search_result.record.admin1
+            ));
+        }
+        _ => None,
     }
 }

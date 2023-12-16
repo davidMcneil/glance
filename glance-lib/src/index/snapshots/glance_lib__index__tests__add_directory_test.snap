@@ -12,6 +12,7 @@ expression: data
         created: Some(
             2008-07-31T10:38:11Z,
         ),
+        location: None,
         device: Some(
             Device(
                 "\"Canon EOS 40D\"",
@@ -32,6 +33,7 @@ expression: data
         created: Some(
             2008-07-31T10:03:44Z,
         ),
+        location: None,
         device: Some(
             Device(
                 "\"NIKON D70\"",
@@ -44,12 +46,36 @@ expression: data
         ),
     },
     Media {
+        filepath: "../test-media/exif-images/beach.jpg",
+        size: Size(
+            2076392,
+        ),
+        format: ArbitraryBinaryData,
+        created: Some(
+            2022-02-26T15:23:43Z,
+        ),
+        location: Some(
+            "Santa Barbara, California",
+        ),
+        device: Some(
+            Device(
+                "\"G60\"",
+            ),
+        ),
+        hash: Some(
+            Hash(
+                "abb29b8864b643d44b7d81dd175fdce92974125d3228346dcaa3722ec75b116b",
+            ),
+        ),
+    },
+    Media {
         filepath: "../test-media/images/ferris.jpg",
         size: Size(
             14737,
         ),
         format: ArbitraryBinaryData,
         created: None,
+        location: None,
         device: None,
         hash: Some(
             Hash(
@@ -64,6 +90,7 @@ expression: data
         ),
         format: ArbitraryBinaryData,
         created: None,
+        location: None,
         device: None,
         hash: Some(
             Hash(
@@ -78,6 +105,7 @@ expression: data
         ),
         format: ArbitraryBinaryData,
         created: None,
+        location: None,
         device: None,
         hash: Some(
             Hash(
