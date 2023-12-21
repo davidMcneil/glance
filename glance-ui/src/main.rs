@@ -2,7 +2,7 @@ use std::fs;
 
 use anyhow::Result;
 use glance_lib::index::media::Media;
-use glance_lib::index::Index;
+use glance_lib::index::{AddDirectoryConfig, Index};
 use iced::executor;
 use iced::widget::image::Handle;
 use iced::widget::{button, column, container, image, row};
@@ -35,7 +35,7 @@ impl Application for GlanceUi {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         let mut index = Index::new_in_memory().expect("unable to initialize index");
         index
-            .add_directory("../test-media", false)
+            .add_directory("../test-media", &AddDirectoryConfig::default())
             .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
         let image_handles = media_vec

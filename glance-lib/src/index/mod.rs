@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use dateparser::parse_with_timezone;
 use derive_more::Display;
 use exif::{Exif, In, Rational, Tag, Value};
@@ -32,6 +32,16 @@ pub struct Index {
     connection: Connection,
 }
 
+#[derive(Debug, Default)]
+pub struct AddDirectoryConfig {
+    /// Compute the hash of the files
+    pub hash: bool,
+    /// Filter contents to only include images and videos
+    pub filter_by_media: bool,
+    /// Use the modified time of the file if created is not set in exif data
+    pub use_modified_if_created_not_set: bool,
+}
+
 impl Index {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let connection = Connection::open(path)?;
@@ -49,9 +59,7 @@ impl Index {
         let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
         let path = crate_root.join("test-dbs");
-        if !path.exists() {
-            fs::create_dir_all(&path)?;
-        }
+        fs::create_dir_all(&path)?;
 
         let mut path = path.join(test);
         path.set_extension("db");
@@ -68,17 +76,22 @@ impl Index {
         Ok(Self { connection })
     }
 
-    pub fn add_directory<P: AsRef<Path>>(&mut self, path: P, with_hash: bool) -> Result<(), Error> {
+    pub fn add_directory<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        config: &AddDirectoryConfig,
+    ) -> Result<(), Error> {
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
             if entry.file_type().is_file() {
-                match file_to_media_row(&entry, with_hash) {
+                match file_to_media_row(&entry, config) {
                     Ok(Some(new_row)) => {
                         let res = MediaSql::from(new_row).insert(&transaction);
                         if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
                             if e == ErrorCode::ConstraintViolation {
-                                eprintln!("duplicate file '{}'", entry.path().display());
+                                // eprintln!("duplicate file '{}'", entry.path().display());
+                                continue;
                             }
                         }
                         res?;
@@ -107,61 +120,94 @@ impl Index {
             .map(from_media_sql_result)
             .collect()
     }
-}
 
-fn file_to_media_row(entry: &DirEntry, with_hash: bool) -> Result<Option<Media>, Error> {
-    let path = entry.path().to_path_buf();
-    let format = FileFormat::from_file(&path)?;
-    match format.kind() {
-        Kind::Image | Kind::Video => {
-            let metadata = entry.metadata()?;
-            let hash = if with_hash {
-                let bytes = fs::read(&path)?;
-                Some(blake3::hash(&bytes))
-            } else {
-                None
-            };
+    pub fn standardize_naming<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        let path = path.as_ref();
+        for media in MediaSearch::new_with_filter_defaults(&self.connection)?
+            .iter()?
+            .map(from_media_sql_result)
+        {
+            let media = media?;
+            if let Some(created) = media.created {
+                let folder_name = created.format("%Y-%m").to_string();
+                let destination_folder = path.join(&folder_name);
+                let Some(destination_file_name) = media.filepath.file_name() else {
+                    continue;
+                };
+                fs::create_dir_all(&destination_folder)?;
+                let destination_path = destination_folder.join(destination_file_name);
+                fs::rename(&media.filepath, &destination_path)?;
 
-            let mut row = Media {
-                filepath: path.clone(),
-                size: metadata.len().into(),
-                format,
-                created: None,
-                location: None,
-                device: None,
-                hash,
-            };
-
-            let file = std::fs::File::open(&path)?;
-            let mut bufreader = std::io::BufReader::new(&file);
-            let exifreader = exif::Reader::new();
-            let exif = exifreader.read_from_container(&mut bufreader);
-            if let Ok(exif) = exif {
-                if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
-                    let date_taken_string = format!("{}", date_taken.display_value());
-                    if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
-                        row.created = Some(date_taken);
-                    }
-                }
-                if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
-                    let model_string = format!("{}", model.display_value());
-                    row.device = Some(Device::from(model_string));
-                }
-                row.location = get_location_from_exif(&exif);
+                println!(
+                    "Moved {} to {}",
+                    media.filepath.display(),
+                    destination_path.display()
+                );
             }
-            Ok(Some(row))
         }
-        _ => Ok(None),
+        Ok(())
     }
 }
 
+fn file_to_media_row(
+    entry: &DirEntry,
+    config: &AddDirectoryConfig,
+) -> Result<Option<Media>, Error> {
+    let path = entry.path().to_path_buf();
+    let format = FileFormat::from_file(&path)?;
+    if config.filter_by_media && !matches!(format.kind(), Kind::Image | Kind::Video) {
+        return Ok(None);
+    }
+    let metadata = entry.metadata()?;
+    let hash = if config.hash {
+        let bytes = fs::read(&path)?;
+        Some(blake3::hash(&bytes))
+    } else {
+        None
+    };
+    let created = if config.use_modified_if_created_not_set {
+        metadata.created().ok().map(DateTime::<Utc>::from)
+    } else {
+        None
+    };
+
+    let mut row = Media {
+        filepath: path.clone(),
+        size: metadata.len().into(),
+        format,
+        created,
+        location: None,
+        device: None,
+        hash,
+    };
+
+    let file = std::fs::File::open(&path)?;
+    let mut bufreader = std::io::BufReader::new(&file);
+    let exifreader = exif::Reader::new();
+    let exif = exifreader.read_from_container(&mut bufreader);
+    if let Ok(exif) = exif {
+        if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
+            let date_taken_string = format!("{}", date_taken.display_value());
+            if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
+                row.created = Some(date_taken);
+            }
+        }
+        if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
+            let model_string = format!("{}", model.display_value());
+            row.device = Some(Device::from(model_string));
+        }
+        row.location = get_location_from_exif(&exif);
+    }
+    Ok(Some(row))
+}
+
 fn get_location_from_exif(exif: &Exif) -> Option<String> {
-    fn to_decimal_degrees(degree_minute_second: &Vec<Rational>, bearing: &str) -> Option<f64> {
+    fn to_decimal_degrees(degree_minute_second: &[Rational], bearing: &str) -> Option<f64> {
         let degrees = degree_minute_second.get(0)?.num as i32;
         let minutes = degree_minute_second.get(1)?.num as i32;
         let seconds =
             (degree_minute_second.get(2)?.num as f64) / (degree_minute_second.get(2)?.denom as f64);
-        let ddeg: f64 = degrees as f64 + minutes as f64 / 60.0_f64 + seconds as f64 / 3600.0_f64;
+        let ddeg: f64 = degrees as f64 + minutes as f64 / 60.0_f64 + seconds / 3600.0_f64;
         match bearing {
             "N" | "E" => Some(ddeg),
             "S" | "W" => Some(-ddeg),
@@ -184,10 +230,10 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
 
             let geocoder = ReverseGeocoder::new();
             let search_result = geocoder.search((lat_degrees, long_degrees));
-            return Some(format!(
+            Some(format!(
                 "{}, {}",
                 search_result.record.name, search_result.record.admin1
-            ));
+            ))
         }
         _ => None,
     }
