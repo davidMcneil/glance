@@ -34,8 +34,8 @@ fn main() -> Result<()> {
     };
     index.add_directory(&args.media_path, &config)?;
 
-    let duplicates = index.duplicates();
-    println!("{:?}", duplicates);
+    let stats = index.stats()?;
+    println!("{}", serde_json::to_string_pretty(&stats)?);
 
     if args.standardize_naming {
         index.standardize_naming(&args.media_path)?;

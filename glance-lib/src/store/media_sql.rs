@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use const_format::formatcp;
 use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
@@ -71,7 +73,24 @@ impl MediaSql {
         })
     }
 
-    pub fn exists(&self, conn: &Connection, hash: HashSql) -> Result<bool, Error> {
+    pub fn count(conn: &Connection) -> Result<i64, Error> {
+        let mut stmt = conn.prepare("SELECT count(*) from media")?;
+        stmt.query_row([], |row| row.get(0))
+    }
+
+    pub fn count_by_format(conn: &Connection) -> Result<HashMap<Option<String>, i64>, Error> {
+        let mut stmt = conn.prepare("SELECT format, COUNT(*) from media GROUP BY format")?;
+        let iter = stmt.query_and_then([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        iter.collect()
+    }
+
+    pub fn count_by_device(conn: &Connection) -> Result<HashMap<Option<String>, i64>, Error> {
+        let mut stmt = conn.prepare("SELECT device, COUNT(*) from media GROUP BY device")?;
+        let iter = stmt.query_and_then([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        iter.collect()
+    }
+
+    pub fn exists(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {
             ":hash": hash,

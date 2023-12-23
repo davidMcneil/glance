@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 use chrono::{DateTime, Utc};
 use dateparser::parse_with_timezone;
@@ -7,13 +7,16 @@ use exif::{Exif, In, Rational, Tag, Value};
 use file_format::{FileFormat, Kind};
 use reverse_geocoder::ReverseGeocoder;
 use rusqlite::{Connection, ErrorCode};
+use serde::Serialize;
+use serde_with::{serde_as, FromInto};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
+use crate::index::hash_map_with_unknown::HashMapWithUnknown;
+use crate::index::media::{Device, Media};
 use crate::store::media_sql::{MediaDuplicates, MediaSearch, MediaSql};
 
-use self::media::{Device, Media};
-
+mod hash_map_with_unknown;
 pub mod media;
 #[cfg(test)]
 mod tests;
@@ -30,6 +33,17 @@ pub enum Error {
 
 pub struct Index {
     connection: Connection,
+}
+
+#[serde_as]
+#[derive(Debug, Serialize)]
+pub struct Stats {
+    count: i64,
+    #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
+    count_by_format: HashMap<Option<String>, i64>,
+    #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
+    count_by_device: HashMap<Option<String>, i64>,
+    duplicates: usize,
 }
 
 #[derive(Debug, Default)]
@@ -112,6 +126,15 @@ impl Index {
             .iter()?
             .map(from_media_sql_result)
             .collect()
+    }
+
+    pub fn stats(&self) -> Result<Stats, Error> {
+        Ok(Stats {
+            count: MediaSql::count(&self.connection)?,
+            count_by_format: MediaSql::count_by_format(&self.connection)?,
+            count_by_device: MediaSql::count_by_device(&self.connection)?,
+            duplicates: self.duplicates()?.len(),
+        })
     }
 
     pub fn duplicates(&self) -> Result<Vec<Media>, Error> {
