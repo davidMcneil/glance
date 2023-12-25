@@ -23,7 +23,7 @@ fn file_to_media_row_test() -> Result<()> {
         assert!(media_row.created.is_some());
         assert_eq!(
             media_row.device.ok_or_else(|| anyhow!("missing device"))?,
-            Device::from("\"Canon EOS 40D\"".to_string())
+            Device::from("Canon EOS 40D".to_string())
         );
     }
     Ok(())

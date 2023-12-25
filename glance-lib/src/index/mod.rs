@@ -216,7 +216,7 @@ fn file_to_media_row(
             }
         }
         if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
-            let model_string = format!("{}", model.display_value());
+            let model_string = exif_field_to_string(model);
             row.device = Some(Device::from(model_string));
         }
         row.location = get_location_from_exif(&exif);
@@ -264,4 +264,18 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
 
 fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {
     media_sql.map(|m| m.into()).map_err(|e| e.into())
+}
+
+fn exif_field_to_string(field: &exif::Field) -> String {
+    use exif::Value::*;
+
+    match &field.value {
+        Ascii(ascii) => ascii
+            .iter()
+            .map(|bytes| String::from_utf8_lossy(bytes).trim().to_string())
+            .filter(|s| !String::is_empty(s))
+            .collect::<Vec<_>>()
+            .join(" "),
+        _ => field.display_value().to_string(),
+    }
 }

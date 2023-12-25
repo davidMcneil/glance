@@ -15,7 +15,7 @@ expression: data
         location: None,
         device: Some(
             Device(
-                "\"Canon EOS 40D\"",
+                "Canon EOS 40D",
             ),
         ),
         hash: Some(
@@ -36,7 +36,7 @@ expression: data
         location: None,
         device: Some(
             Device(
-                "\"NIKON D70\"",
+                "NIKON D70",
             ),
         ),
         hash: Some(
@@ -59,7 +59,7 @@ expression: data
         ),
         device: Some(
             Device(
-                "\"G60\"",
+                "G60",
             ),
         ),
         hash: Some(
