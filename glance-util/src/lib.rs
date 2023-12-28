@@ -1,3 +1,4 @@
+pub mod canonicalized_path_buf;
 pub mod hash_map_with_unknown;
 
 #[macro_export]

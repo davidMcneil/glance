@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 use glance_lib::index::{AddDirectoryConfig, Index};
+use glance_util::canonicalized_path_buf::CanonicalizedPathBuf;
 use sloggers::{
     terminal::TerminalLoggerBuilder,
     types::{Severity, SourceLocation},
@@ -15,7 +16,7 @@ use sloggers::{
 struct Args {
     /// Path to directory with media contents
     #[arg(long)]
-    media_path: PathBuf,
+    media_path: CanonicalizedPathBuf,
     /// Path to save the media db index
     #[arg(long)]
     db_path: PathBuf,
@@ -42,18 +43,19 @@ fn main() -> Result<()> {
 
     let mut index = Index::new(args.db_path)?.with_logger(logger);
 
+    let media_path = PathBuf::from(args.media_path);
     let config = AddDirectoryConfig {
         hash: false,
         filter_by_media: false,
         use_modified_if_created_not_set: true,
     };
-    index.add_directory(&args.media_path, &config)?;
+    index.add_directory(&media_path, &config)?;
 
     let stats = index.stats()?;
     println!("{}", serde_json::to_string_pretty(&stats)?);
 
     if args.standardize_naming {
-        index.standardize_naming(&args.media_path)?;
+        index.standardize_naming(&media_path)?;
     }
 
     Ok(())

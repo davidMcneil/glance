@@ -2002,6 +2002,7 @@ dependencies = [
  "anyhow",
  "clap",
  "glance-lib",
+ "glance-util",
  "serde_json",
  "slog",
  "sloggers",
@@ -2056,6 +2057,7 @@ dependencies = [
 name = "glance-util"
 version = "0.1.0"
 dependencies = [
+ "derive_more",
  "serde",
 ]
 
