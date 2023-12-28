@@ -10,6 +10,7 @@ const_format = "0.2"
 dateparser = "0.2"
 derive_more = { version = "1.0.0-beta.6", features = ["full"] }
 file-format = "0.23"
+glance-util = {path = "../glance-util"}
 kamadak-exif = "0.5"
 rusqlite = { version = "0.30", features = ["bundled", "chrono", "backup"] }
 serde = { version = "1", features = ["derive"] }
@@ -23,4 +24,3 @@ reverse_geocoder = "4"
 [dev-dependencies]
 anyhow = "1"
 insta = "1"
-glance-util = {path = "../glance-util"}

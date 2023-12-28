@@ -1,3 +1,5 @@
+pub mod hash_map_with_unknown;
+
 #[macro_export]
 macro_rules! function {
     () => {{

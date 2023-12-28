@@ -5,6 +5,7 @@ use dateparser::parse_with_timezone;
 use derive_more::Display;
 use exif::{Exif, In, Rational, Tag, Value};
 use file_format::{FileFormat, Kind};
+use glance_util::hash_map_with_unknown::HashMapWithUnknown;
 use reverse_geocoder::ReverseGeocoder;
 use rusqlite::{Connection, ErrorCode};
 use serde::Serialize;
@@ -14,11 +15,9 @@ use sloggers::{null::NullLoggerBuilder, Build};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
-use crate::index::hash_map_with_unknown::HashMapWithUnknown;
 use crate::index::media::{Device, Media};
 use crate::store::media_sql::{MediaDuplicates, MediaSearch, MediaSql};
 
-mod hash_map_with_unknown;
 pub mod media;
 #[cfg(test)]
 mod tests;
