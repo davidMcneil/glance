@@ -14,6 +14,8 @@ kamadak-exif = "0.5"
 rusqlite = { version = "0.30", features = ["bundled", "chrono", "backup"] }
 serde = { version = "1", features = ["derive"] }
 serde_with = "3"
+slog = "2"
+sloggers = "2"
 thiserror = "1"
 walkdir = "2"
 reverse_geocoder = "4"

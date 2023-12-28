@@ -9,6 +9,8 @@ use reverse_geocoder::ReverseGeocoder;
 use rusqlite::{Connection, ErrorCode};
 use serde::Serialize;
 use serde_with::{serde_as, FromInto};
+use slog::{error, info, Logger};
+use sloggers::{null::NullLoggerBuilder, Build};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
@@ -27,12 +29,15 @@ pub enum Error {
     Io(#[from] std::io::Error),
     /// rusqlite: {:0}
     Rusqlite(#[from] rusqlite::Error),
+    /// sloggers: {:0}
+    Sloggers(#[from] sloggers::Error),
     /// walkdir: {:0}
     Walkdir(#[from] walkdir::Error),
 }
 
 pub struct Index {
     connection: Connection,
+    logger: Logger,
 }
 
 #[serde_as]
@@ -87,7 +92,15 @@ impl Index {
 
     fn new_impl(mut connection: Connection) -> Result<Self, Error> {
         MediaSql::create_table(&mut connection)?;
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            logger: NullLoggerBuilder.build()?,
+        })
+    }
+
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = logger;
+        self
     }
 
     pub fn add_directory<P: AsRef<Path>>(
@@ -95,6 +108,9 @@ impl Index {
         path: P,
         config: &AddDirectoryConfig,
     ) -> Result<(), Error> {
+        info!(self.logger, "adding directory";
+            "path" => path.as_ref().display(),
+        );
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
@@ -104,7 +120,9 @@ impl Index {
                         let res = MediaSql::from(new_row).insert(&transaction);
                         if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
                             if e == ErrorCode::ConstraintViolation {
-                                // eprintln!("duplicate file '{}'", entry.path().display());
+                                error!(self.logger, "duplicate file";
+                                    "path" => entry.path().display(),
+                                );
                                 continue;
                             }
                         }
@@ -112,7 +130,10 @@ impl Index {
                     }
                     Ok(None) => (),
                     Err(e) => {
-                        eprintln!("failed to process file '{}': {}", entry.path().display(), e)
+                        error!(self.logger, "failed to process file";
+                            "path" => entry.path().display(),
+                            "error" => e.to_string(),
+                        )
                     }
                 }
             }
@@ -161,10 +182,9 @@ impl Index {
                 let destination_path = destination_folder.join(destination_file_name);
                 fs::rename(&media.filepath, &destination_path)?;
 
-                println!(
-                    "Moved {} to {}",
-                    media.filepath.display(),
-                    destination_path.display()
+                info!(self.logger, "standardize naming";
+                    "old_path" => media.filepath.display(),
+                    "new_path" => destination_path.display(),
                 );
             }
         }
