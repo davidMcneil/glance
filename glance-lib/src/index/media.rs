@@ -8,10 +8,10 @@ use file_format::FileFormat;
 use crate::store::media_sql::MediaSql;
 
 #[derive(Debug, Into, From, PartialEq, Eq)]
-pub struct Device(String);
+pub struct Device(pub String);
 
 #[derive(Debug, Into, From, PartialEq, Eq)]
-pub struct Size(u64);
+pub struct Size(pub u64);
 
 #[derive(Debug)]
 pub struct Media {

@@ -12,4 +12,5 @@ env_logger = { version = "0.10", default-features = false, features = [
   "auto-color",
   "humantime",
 ] }
+chrono = { version = "0.4", features = ["std"] }
 glance-lib = {path = "../glance-lib"}

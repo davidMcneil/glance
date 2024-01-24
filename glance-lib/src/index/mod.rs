@@ -58,6 +58,8 @@ pub struct AddDirectoryConfig {
     pub filter_by_media: bool,
     /// Use the modified time of the file if created is not set in exif data
     pub use_modified_if_created_not_set: bool,
+    /// Calculate the nearest city based on the exif GPS data
+    pub calculate_nearest_city: bool,
 }
 
 impl Index {
@@ -238,7 +240,9 @@ fn file_to_media_row(
             let model_string = exif_field_to_string(model);
             row.device = Some(Device::from(model_string));
         }
-        row.location = get_location_from_exif(&exif);
+        if config.calculate_nearest_city {
+            row.location = get_location_from_exif(&exif);
+        }
     }
     Ok(Some(row))
 }

@@ -14,6 +14,7 @@ fn file_to_media_row_test() -> Result<()> {
             hash: true,
             filter_by_media: false,
             use_modified_if_created_not_set: false,
+            calculate_nearest_city: false,
         };
         let media_row =
             file_to_media_row(&entry, &config)?.ok_or_else(|| anyhow!("should be some"))?;
@@ -36,6 +37,7 @@ fn add_directory_test() -> Result<()> {
         hash: true,
         filter_by_media: false,
         use_modified_if_created_not_set: false,
+        calculate_nearest_city: true,
     };
     index.add_directory("../test-media", &config)?;
     let mut data = index.get_media()?;

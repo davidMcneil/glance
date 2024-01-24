@@ -48,6 +48,7 @@ fn main() -> Result<()> {
         hash: false,
         filter_by_media: false,
         use_modified_if_created_not_set: true,
+        calculate_nearest_city: false,
     };
     index.add_directory(&media_path, &config)?;
 

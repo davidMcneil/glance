@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use chrono::Local;
 use eframe::egui;
 use glance_lib::index::media::Media;
 use glance_lib::index::{AddDirectoryConfig, Index};
@@ -30,9 +31,17 @@ struct GlanceEgui {
 
 impl GlanceEgui {
     fn new() -> Self {
-        let mut index = Index::new_in_memory().expect("unable to initialize index");
+        let mut index = Index::new("testing.db").expect("unable to initialize index");
         index
-            .add_directory("../../../test-photos", &AddDirectoryConfig::default())
+            .add_directory(
+                "../../../test-photos",
+                &AddDirectoryConfig {
+                    hash: false,
+                    filter_by_media: true,
+                    use_modified_if_created_not_set: true,
+                    calculate_nearest_city: false,
+                },
+            )
             .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
@@ -47,13 +56,17 @@ impl eframe::App for GlanceEgui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
-                if ui.button("Previous").clicked() {
+                if ui.button("Previous").clicked()
+                    || ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft))
+                {
                     self.current_media_idx =
                         self.current_media_idx
                             .map(|idx| if idx == 0 { 0 } else { idx - 1 });
                 }
 
-                if ui.button("Next").clicked() {
+                if ui.button("Next").clicked()
+                    || ctx.input(|i| i.key_pressed(egui::Key::ArrowRight))
+                {
                     self.current_media_idx = self.current_media_idx.map(|idx| {
                         if idx == self.media_vec.len() - 1 {
                             idx
@@ -64,7 +77,21 @@ impl eframe::App for GlanceEgui {
                 }
 
                 if let Some(idx) = self.current_media_idx {
-                    let path = self.media_vec.get(idx).unwrap().filepath.to_str().unwrap();
+                    let media = self.media_vec.get(idx).unwrap();
+                    let path = media.filepath.to_str().unwrap();
+
+                    ui.label(format!("Path: {}", path));
+                    if let Some(created_date) = media.created {
+                        ui.label(format!("Taken: {}", created_date.with_timezone(&Local)));
+                    }
+                    if let Some(device) = &media.device {
+                        ui.label(format!("Device: {}", device.0));
+                    }
+                    if let Some(location) = &media.location {
+                        ui.label(format!("Location: {}", location));
+                    }
+                    ui.label(format!("Size: {}", media.size.0));
+
                     ui.image(format!("file://{}", path));
                 }
             });

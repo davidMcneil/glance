@@ -2012,6 +2012,7 @@ dependencies = [
 name = "glance-egui"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "eframe",
  "egui",
  "egui_extras",
