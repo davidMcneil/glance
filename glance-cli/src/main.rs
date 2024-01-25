@@ -45,7 +45,7 @@ fn main() -> Result<()> {
 
     let media_path = PathBuf::from(args.media_path);
     let config = AddDirectoryConfig {
-        hash: false,
+        hash: args.enable_hash,
         filter_by_media: false,
         use_modified_if_created_not_set: true,
         calculate_nearest_city: false,
