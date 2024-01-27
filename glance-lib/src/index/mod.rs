@@ -16,7 +16,7 @@ use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::index::media::{Device, Media};
-use crate::store::media_sql::{MediaDuplicates, MediaSearch, MediaSql};
+use crate::store::media_sql::{MediaDuplicates, MediaFilter, MediaSearch, MediaSql};
 
 pub mod media;
 #[cfg(test)]
@@ -148,6 +148,13 @@ impl Index {
 
     pub fn get_media(&self) -> Result<Vec<Media>, Error> {
         MediaSearch::new_with_filter_defaults(&self.connection)?
+            .iter()?
+            .map(from_media_sql_result)
+            .collect()
+    }
+
+    pub fn get_media_with_filter(&self, media_filter: MediaFilter) -> Result<Vec<Media>, Error> {
+        MediaSearch::new(&self.connection, media_filter)?
             .iter()?
             .map(from_media_sql_result)
             .collect()

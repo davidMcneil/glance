@@ -2,9 +2,9 @@
 
 use std::collections::VecDeque;
 
-use chrono::Local;
+use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
-use glance_lib::index::media::Media;
+use glance_lib::index::media::{Media, MediaFilter};
 use glance_lib::index::{AddDirectoryConfig, Index};
 use sloggers::terminal::TerminalLoggerBuilder;
 use sloggers::Build;
@@ -27,11 +27,14 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-#[derive(Default)]
 struct GlanceEgui {
+    index: Index,
     media_vec: Vec<Media>,
+    media_filter: MediaFilter,
     current_media_idx: Option<usize>,
     previously_seen_images: VecDeque<String>,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
 }
 
 impl GlanceEgui {
@@ -50,13 +53,39 @@ impl GlanceEgui {
         //         },
         //     )
         //     .expect("to be able to add directory");
-        let media_vec = index.get_media().expect("get media to work");
+        let media_vec = index
+            .get_media_with_filter(MediaFilter::default())
+            .expect("get media to work");
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
         Self {
+            index,
             media_vec,
+            media_filter: MediaFilter::default(),
             current_media_idx,
             previously_seen_images: VecDeque::new(),
+            start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+            end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         }
+    }
+
+    fn update_media(&mut self) {
+        self.media_filter.created_start = Some(chrono::DateTime::from_naive_utc_and_offset(
+            self.start_date.and_hms_opt(0, 0, 0).unwrap(),
+            Utc,
+        ));
+        self.media_filter.created_end = Some(chrono::DateTime::from_naive_utc_and_offset(
+            self.end_date.and_hms_opt(0, 0, 0).unwrap(),
+            Utc,
+        ));
+        self.media_vec = self
+            .index
+            .get_media_with_filter(self.media_filter)
+            .expect("get media to work");
+        self.current_media_idx = if !self.media_vec.is_empty() {
+            Some(0)
+        } else {
+            None
+        };
     }
 
     fn add_previously_seen_image(&mut self, path: String, ctx: &egui::Context) {
@@ -117,6 +146,22 @@ impl eframe::App for GlanceEgui {
                 if ui.button("Clear Cache").clicked() {
                     ctx.forget_all_images();
                 }
+
+                if ui
+                    .add(
+                        egui_extras::DatePickerButton::new(&mut self.start_date).id_source("start"),
+                    )
+                    .changed()
+                {
+                    self.update_media();
+                };
+
+                if ui
+                    .add(egui_extras::DatePickerButton::new(&mut self.end_date).id_source("end"))
+                    .changed()
+                {
+                    self.update_media();
+                };
 
                 if let Some(idx) = self.current_media_idx {
                     let media = self.media_vec.get(idx).unwrap();

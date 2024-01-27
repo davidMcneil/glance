@@ -1395,6 +1395,7 @@ version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97624eaf17a16058265d3a3e712e167798655baf7c8f693de25be75cdd6c57b5"
 dependencies = [
+ "chrono",
  "egui",
  "ehttp",
  "enum-map",

@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use derive_more::{From, Into};
 use file_format::FileFormat;
 
+pub use crate::store::media_sql::MediaFilter;
 use crate::store::media_sql::MediaSql;
 
 #[derive(Debug, Into, From, PartialEq, Eq)]

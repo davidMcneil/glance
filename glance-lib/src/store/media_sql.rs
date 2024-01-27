@@ -21,8 +21,8 @@ pub(crate) struct MediaSql {
     pub hash: Option<HashSql>,
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct MediaFilter {
+#[derive(Debug, Default, Clone, Copy)]
+pub struct MediaFilter {
     pub created_start: Option<DateTime<Utc>>,
     pub created_end: Option<DateTime<Utc>>,
 }
