@@ -118,6 +118,9 @@ impl Index {
             if entry.file_type().is_file() {
                 match file_to_media_row(&entry, config) {
                     Ok(Some(new_row)) => {
+                        info!(self.logger, "adding row";
+                            "path" => new_row.filepath.display(),
+                        );
                         let res = MediaSql::from(new_row).insert(&transaction);
                         if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
                             if e == ErrorCode::ConstraintViolation {
@@ -199,7 +202,7 @@ fn file_to_media_row(
 ) -> Result<Option<Media>, Error> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path)?;
-    if config.filter_by_media && !matches!(format.kind(), Kind::Image | Kind::Video) {
+    if config.filter_by_media && !matches!(format.kind(), Kind::Image) {
         return Ok(None);
     }
     let metadata = entry.metadata()?;

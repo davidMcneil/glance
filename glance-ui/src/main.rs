@@ -1,12 +1,12 @@
-use std::fs;
-
 use anyhow::Result;
+use chrono::Local;
 use glance_lib::index::media::Media;
 use glance_lib::index::{AddDirectoryConfig, Index};
-use iced::executor;
-use iced::widget::image::Handle;
-use iced::widget::{button, column, container, image, row};
-use iced::{Application, Command, Element, Settings, Theme};
+use iced::widget::{button, column, container, image, row, text};
+use iced::{executor, subscription, Application, Command, Element, Event, Settings, Theme};
+use iced::{keyboard, Subscription};
+use sloggers::terminal::TerminalLoggerBuilder;
+use sloggers::Build;
 
 pub fn main() -> Result<()> {
     GlanceUi::run(Settings::default())?;
@@ -16,7 +16,6 @@ pub fn main() -> Result<()> {
 #[derive(Default)]
 struct GlanceUi {
     media_vec: Vec<Media>,
-    image_handles: Vec<Handle>,
     current_media_idx: Option<usize>,
 }
 
@@ -33,23 +32,26 @@ impl Application for GlanceUi {
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        let mut index = Index::new_in_memory().expect("unable to initialize index");
-        index
-            .add_directory("../test-media", &AddDirectoryConfig::default())
-            .expect("to be able to add directory");
+        let mut index = Index::new("test.db")
+            .expect("unable to initialize index")
+            .with_logger(TerminalLoggerBuilder::new().build().unwrap());
+        // index
+        //     .add_directory(
+        //         "/media/luke/TOSHIBA-SILVER/pictures/2012",
+        //         // "../../../test-photos",
+        //         &AddDirectoryConfig {
+        //             hash: false,
+        //             filter_by_media: true,
+        //             use_modified_if_created_not_set: true,
+        //             calculate_nearest_city: false,
+        //         },
+        //     )
+        //     .expect("to be able to add directory");
         let media_vec = index.get_media().expect("get media to work");
-        let image_handles = media_vec
-            .iter()
-            .map(|media| {
-                let bytes = fs::read(&media.filepath).unwrap();
-                Handle::from_memory(bytes)
-            })
-            .collect();
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
         (
             Self {
                 media_vec,
-                image_handles,
                 current_media_idx,
             },
             Command::none(),
@@ -80,6 +82,23 @@ impl Application for GlanceUi {
         Command::none()
     }
 
+    fn subscription(&self) -> Subscription<Message> {
+        subscription::events_with(|event, _status| match event {
+            Event::Keyboard(keyboard_event) => match keyboard_event {
+                keyboard::Event::KeyPressed {
+                    key_code: keyboard::KeyCode::Right,
+                    modifiers: _,
+                } => Some(Message::NextImage),
+                keyboard::Event::KeyPressed {
+                    key_code: keyboard::KeyCode::Left,
+                    modifiers: _,
+                } => Some(Message::PreviousImage),
+                _ => None,
+            },
+            _ => None,
+        })
+    }
+
     fn view(&self) -> Element<Message> {
         let buttons = row![
             button("Previous")
@@ -93,8 +112,21 @@ impl Application for GlanceUi {
 
         let mut contents = column![buttons];
         if let Some(idx) = self.current_media_idx {
-            let handle = self.image_handles.get(idx).unwrap();
-            let image = image(handle.clone());
+            let media = self.media_vec.get(idx).unwrap();
+            contents = contents.push(text(format!("path: {}", media.filepath.display())));
+            if let Some(created) = &media.created {
+                contents =
+                    contents.push(text(format!("Created: {}", created.with_timezone(&Local))));
+            }
+            if let Some(device) = &media.device {
+                contents = contents.push(text(format!("Device: {}", device.0)));
+            }
+            if let Some(location) = &media.location {
+                contents = contents.push(text(format!("Location: {}", location)));
+            }
+            contents = contents.push(text(format!("Size: {}", media.size.0)));
+
+            let image = image(media.filepath.clone());
             contents = contents.push(image);
         }
 

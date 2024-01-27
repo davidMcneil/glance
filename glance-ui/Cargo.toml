@@ -7,3 +7,6 @@ edition = "2021"
 anyhow = "1"
 iced = { version = "0.10", features = ["image"] }
 glance-lib = {path = "../glance-lib"}
+sloggers = "2"
+slog = "2"
+chrono = { version = "0.4", features = ["std"] }
