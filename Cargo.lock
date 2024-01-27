@@ -2020,6 +2020,7 @@ dependencies = [
  "env_logger",
  "glance-lib",
  "image",
+ "serde_json",
  "slog",
  "sloggers",
 ]

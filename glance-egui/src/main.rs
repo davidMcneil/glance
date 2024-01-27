@@ -35,6 +35,7 @@ struct GlanceEgui {
     previously_seen_images: VecDeque<String>,
     start_date: NaiveDate,
     end_date: NaiveDate,
+    stats: Option<String>,
 }
 
 impl GlanceEgui {
@@ -57,14 +58,19 @@ impl GlanceEgui {
             .get_media_with_filter(MediaFilter::default())
             .expect("get media to work");
         let current_media_idx = if !media_vec.is_empty() { Some(0) } else { None };
+        let stats = index
+            .stats()
+            .ok()
+            .map(|s| serde_json::to_string_pretty(&s).unwrap());
         Self {
             index,
             media_vec,
             media_filter: MediaFilter::default(),
             current_media_idx,
             previously_seen_images: VecDeque::new(),
-            start_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+            start_date: NaiveDate::from_ymd_opt(2000, 1, 1).unwrap(),
             end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            stats,
         }
     }
 
@@ -147,21 +153,29 @@ impl eframe::App for GlanceEgui {
                     ctx.forget_all_images();
                 }
 
-                if ui
-                    .add(
-                        egui_extras::DatePickerButton::new(&mut self.start_date).id_source("start"),
-                    )
-                    .changed()
-                {
-                    self.update_media();
-                };
-
-                if ui
-                    .add(egui_extras::DatePickerButton::new(&mut self.end_date).id_source("end"))
-                    .changed()
-                {
-                    self.update_media();
-                };
+                ui.horizontal(|ui| {
+                    ui.label("Start date");
+                    if ui
+                        .add(
+                            egui_extras::DatePickerButton::new(&mut self.start_date)
+                                .id_source("start"),
+                        )
+                        .changed()
+                    {
+                        self.update_media();
+                    };
+                });
+                ui.horizontal(|ui| {
+                    ui.label("End date");
+                    if ui
+                        .add(
+                            egui_extras::DatePickerButton::new(&mut self.end_date).id_source("end"),
+                        )
+                        .changed()
+                    {
+                        self.update_media();
+                    };
+                });
 
                 if let Some(idx) = self.current_media_idx {
                     let media = self.media_vec.get(idx).unwrap();
@@ -188,6 +202,10 @@ impl eframe::App for GlanceEgui {
                             }
                         }
                     });
+                }
+
+                if let Some(stats) = &self.stats {
+                    ui.label(stats);
                 }
             });
         });
