@@ -20,6 +20,8 @@ jobs:
                       archive: zip
         steps:
             - uses: actions/checkout@master
+            - name: Install Gtk
+              run: sudo apt-get install libgtk-3-dev
             - name: Compile and release
               uses: rust-build/rust-build.action@v1.4.4
               env:
