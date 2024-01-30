@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::Local;
 use glance_lib::index::media::Media;
-use glance_lib::index::{AddDirectoryConfig, Index};
+use glance_lib::index::Index;
 use iced::widget::{button, column, container, image, row, text};
 use iced::{executor, subscription, Application, Command, Element, Event, Settings, Theme};
 use iced::{keyboard, Subscription};
@@ -32,7 +32,7 @@ impl Application for GlanceUi {
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        let mut index = Index::new("test.db")
+        let index = Index::new("test.db")
             .expect("unable to initialize index")
             .with_logger(TerminalLoggerBuilder::new().build().unwrap());
         // index
