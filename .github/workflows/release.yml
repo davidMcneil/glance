@@ -25,14 +25,14 @@ jobs:
                   override: true
 
             - name: Build
-              run: RUSTFLAGS="-C target-feature=-crt-static" cargo build --all --release && strip target/release/glance-egui && strip target/release/glance-cli && mv target/release/glance-egui target/release/glance-egui-amd64 && mv target/release/glance-cli target/release/glance-cli-amd64
+              run: RUSTFLAGS="-C target-feature=-crt-static" cargo build --all --release && strip target/release/glance-ui && strip target/release/glance-cli && mv target/release/glance-ui target/release/glance-ui-amd64 && mv target/release/glance-cli target/release/glance-cli-amd64
 
             - name: Release
               uses: softprops/action-gh-release@v1
               if: startsWith(github.ref, 'refs/tags/')
               with:
                   files: |
-                      target/release/glance-egui-amd64
+                      target/release/glance-ui-amd64
                       target/release/glance-cli-amd64
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,7 +59,7 @@ jobs:
               if: startsWith(github.ref, 'refs/tags/')
               with:
                   files: |
-                      target/release/glance-egui.exe
+                      target/release/glance-ui.exe
                       target/release/glance-cli.exe
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -80,14 +80,14 @@ jobs:
                   override: true
 
             - name: Build for mac
-              run: cargo build --all --release && strip target/release/glance-egui && strip target/release/glance-cli && mv target/release/glance-egui target/release/glance-egui-darwin && mv target/release/glance-cli target/release/glance-cli-darwin
+              run: cargo build --all --release && strip target/release/glance-ui && strip target/release/glance-cli && mv target/release/glance-ui target/release/glance-ui-darwin && mv target/release/glance-cli target/release/glance-cli-darwin
 
             - name: Release
               uses: softprops/action-gh-release@v1
               if: startsWith(github.ref, 'refs/tags/')
               with:
                   files: |
-                      target/release/glance-egui-darwin
+                      target/release/glance-ui-darwin
                       target/release/glance-cli-darwin
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

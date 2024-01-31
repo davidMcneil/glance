@@ -1,0 +1,12 @@
+[package]
+name = "glance-iced"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+iced = { version = "0.10", features = ["image"] }
+glance-lib = {path = "../glance-lib"}
+sloggers = "2"
+slog = "2"
+chrono = { version = "0.4", features = ["std"] }
