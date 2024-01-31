@@ -9,7 +9,7 @@ permissions:
 
 jobs:
     build:
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
 
         steps:
             - name: Checkout
@@ -25,7 +25,7 @@ jobs:
                   override: true
 
             - name: Build
-              run: cargo build --all --release && strip target/release/glance-egui && mv target/release/glance-egui target/release/glance-egui-amd64
+              run: RUSTFLAGS="-C target-feature=-crt-static" cargo build --all --release && strip target/release/glance-egui && strip target/release/glance-cli && mv target/release/glance-egui target/release/glance-egui-amd64 && mv target/release/glance-cli target/release/glance-cli-amd64
 
             - name: Release
               uses: softprops/action-gh-release@v1
@@ -33,6 +33,7 @@ jobs:
               with:
                   files: |
                       target/release/glance-egui-amd64
+                      target/release/glance-cli-amd64
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -57,7 +58,9 @@ jobs:
               uses: softprops/action-gh-release@v1
               if: startsWith(github.ref, 'refs/tags/')
               with:
-                  files: target/release/glance-egui.exe
+                  files: |
+                      target/release/glance-egui.exe
+                      target/release/glance-cli.exe
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -77,7 +80,7 @@ jobs:
                   override: true
 
             - name: Build for mac
-              run: cargo build --all --release && strip target/release/glance-egui && mv target/release/glance-egui target/release/glance-egui-darwin
+              run: cargo build --all --release && strip target/release/glance-egui && strip target/release/glance-cli && mv target/release/glance-egui target/release/glance-egui-darwin && mv target/release/glance-cli target/release/glance-cli-darwin
 
             - name: Release
               uses: softprops/action-gh-release@v1
@@ -85,5 +88,6 @@ jobs:
               with:
                   files: |
                       target/release/glance-egui-darwin
+                      target/release/glance-cli-darwin
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
