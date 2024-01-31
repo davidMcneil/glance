@@ -9,7 +9,7 @@ permissions:
 
 jobs:
     build:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-20.04
 
         steps:
             - name: Checkout
@@ -25,7 +25,7 @@ jobs:
                   override: true
 
             - name: Build
-              run: RUSTFLAGS="-C target-feature=-crt-static" cargo build --all --release && strip target/release/glance-ui && strip target/release/glance-cli && mv target/release/glance-ui target/release/glance-ui-amd64 && mv target/release/glance-cli target/release/glance-cli-amd64
+              run: cargo build --all --release && strip target/release/glance-ui && strip target/release/glance-cli && mv target/release/glance-ui target/release/glance-ui-amd64 && mv target/release/glance-cli target/release/glance-cli-amd64
 
             - name: Release
               uses: softprops/action-gh-release@v1
