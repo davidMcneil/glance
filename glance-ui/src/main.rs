@@ -26,6 +26,7 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+#[derive(Default)]
 struct GlanceUi {
     index: Option<Index>,
     media_vec: Vec<Media>,
@@ -35,19 +36,15 @@ struct GlanceUi {
     end_date: NaiveDate,
     stats: Option<String>,
     picked_path: Option<String>,
+    add_directory_config: AddDirectoryConfig,
 }
 
 impl GlanceUi {
     fn new() -> Self {
         Self {
-            index: None,
-            media_vec: Vec::new(),
-            current_media_idx: None,
-            previously_seen_images: VecDeque::new(),
             start_date: NaiveDate::from_ymd_opt(2008, 1, 1).unwrap(),
             end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-            stats: None,
-            picked_path: None,
+            ..Default::default()
         }
     }
 
@@ -66,15 +63,7 @@ impl GlanceUi {
         if let Some(index) = &mut self.index {
             if let Some(path) = &self.picked_path {
                 index
-                    .add_directory(
-                        path,
-                        &AddDirectoryConfig {
-                            hash: false,
-                            filter_by_media: true,
-                            use_modified_if_created_not_set: true,
-                            calculate_nearest_city: false,
-                        },
-                    )
+                    .add_directory(path, &self.add_directory_config)
                     .expect("to be able to add directory");
             }
         }
@@ -138,9 +127,24 @@ impl eframe::App for GlanceUi {
                     }
                 });
 
-                if ui.button("Index Chosen Folder").clicked() {
-                    self.add_directory();
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("Index Chosen Folder").clicked() {
+                        self.add_directory();
+                    }
+                    ui.checkbox(&mut self.add_directory_config.hash, "hash");
+                    ui.checkbox(
+                        &mut self.add_directory_config.filter_by_media,
+                        "filter by media",
+                    );
+                    ui.checkbox(
+                        &mut self.add_directory_config.use_modified_if_created_not_set,
+                        "use modified if created not set",
+                    );
+                    ui.checkbox(
+                        &mut self.add_directory_config.calculate_nearest_city,
+                        "calculate nearest city",
+                    );
+                });
 
                 ui.horizontal(|ui| {
                     if ui.button("Previous").clicked()
@@ -212,7 +216,6 @@ impl eframe::App for GlanceUi {
                 if let Some(idx) = self.current_media_idx {
                     let media = self.media_vec.get(idx).unwrap();
                     let path = media.filepath.display();
-
                     ui.label(format!("Path: {}", path));
                     if let Some(created_date) = media.created {
                         ui.label(format!("Taken: {}", created_date.with_timezone(&Local)));
@@ -224,6 +227,9 @@ impl eframe::App for GlanceUi {
                         ui.label(format!("Location: {}", location));
                     }
                     ui.label(format!("Size: {}", media.size.0));
+                    if let Some(hash) = &media.hash {
+                        ui.label(format!("Hash: {}", hash.to_string()));
+                    }
 
                     ui.image(format!("file://{}", path));
 

@@ -50,7 +50,7 @@ pub struct Stats {
     duplicates: usize,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AddDirectoryConfig {
     /// Compute the hash of the files
     pub hash: bool,
@@ -60,6 +60,17 @@ pub struct AddDirectoryConfig {
     pub use_modified_if_created_not_set: bool,
     /// Calculate the nearest city based on the exif GPS data
     pub calculate_nearest_city: bool,
+}
+
+impl Default for AddDirectoryConfig {
+    fn default() -> Self {
+        Self {
+            hash: false,
+            filter_by_media: true,
+            use_modified_if_created_not_set: true,
+            calculate_nearest_city: false,
+        }
+    }
 }
 
 impl Index {
