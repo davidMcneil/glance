@@ -227,6 +227,15 @@ impl Index {
         Ok(())
     }
 
+    pub fn delete_label<P: AsRef<Path>>(&self, path: P, label: String) -> Result<(), Error> {
+        let label = Label {
+            filepath: path.as_ref().to_path_buf(),
+            label,
+        };
+        LabelSql::from(label).delete(&self.connection)?;
+        Ok(())
+    }
+
     pub fn get_labels<P: AsRef<Path>>(&self, path: P) -> Result<Vec<String>, Error> {
         LabelSearch::new(
             &self.connection,

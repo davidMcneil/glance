@@ -299,6 +299,17 @@ impl eframe::App for GlanceUi {
                                     self.all_labels = all_labels;
                                 }
                             }
+                            if ui.button("Remove Label").clicked() {
+                                if let Err(e) = index.delete_label(&path, self.label_to_add.clone())
+                                {
+                                    warn!(self.logger, "failed to delete label";
+                                        "error" => e.to_string(),
+                                    );
+                                }
+                                if let Ok(all_labels) = index.get_all_labels() {
+                                    self.all_labels = all_labels;
+                                }
+                            }
                         });
 
                         if let Ok(labels) = index.get_labels(&path) {

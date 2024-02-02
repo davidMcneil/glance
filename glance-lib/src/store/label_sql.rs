@@ -50,6 +50,18 @@ impl LabelSql {
         })
     }
 
+    pub fn delete(&self, conn: &Connection) -> Result<usize, Error> {
+        let mut stmt = conn.prepare(
+            "DELETE FROM label \
+                    WHERE filepath = :filepath \
+                    AND label = :label",
+        )?;
+        stmt.execute(named_params! {
+            ":filepath": self.filepath,
+            ":label": self.label,
+        })
+    }
+
     pub fn get_all_labels(conn: &Connection) -> Result<Vec<String>, Error> {
         let mut stmt = conn.prepare("SELECT DISTINCT label FROM label ORDER BY label")?;
         let iter = stmt.query_map([], |row| row.get(0))?;
