@@ -6,6 +6,7 @@ use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
 use glance_lib::index::media::{Media, MediaFilter};
 use glance_lib::index::{AddDirectoryConfig, Index};
+use slog::{warn, Logger};
 use sloggers::terminal::TerminalLoggerBuilder;
 use sloggers::Build;
 
@@ -26,7 +27,6 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-#[derive(Default)]
 struct GlanceUi {
     index: Option<Index>,
     media_vec: Vec<Media>,
@@ -37,6 +37,8 @@ struct GlanceUi {
     stats: Option<String>,
     picked_path: Option<String>,
     add_directory_config: AddDirectoryConfig,
+    label: String,
+    logger: Logger,
 }
 
 impl GlanceUi {
@@ -44,7 +46,15 @@ impl GlanceUi {
         Self {
             start_date: NaiveDate::from_ymd_opt(2008, 1, 1).unwrap(),
             end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-            ..Default::default()
+            index: Default::default(),
+            media_vec: Default::default(),
+            current_media_idx: Default::default(),
+            previously_seen_images: Default::default(),
+            stats: Default::default(),
+            picked_path: Default::default(),
+            add_directory_config: Default::default(),
+            label: Default::default(),
+            logger: TerminalLoggerBuilder::new().build().unwrap(),
         }
     }
 
@@ -53,7 +63,7 @@ impl GlanceUi {
             self.index = Some(
                 Index::new(format!("{}/glance.db", path))
                     .expect("to be able to initialize index")
-                    .with_logger(TerminalLoggerBuilder::new().build().unwrap()),
+                    .with_logger(self.logger.clone()),
             );
         }
         self.update_media();
@@ -229,6 +239,24 @@ impl eframe::App for GlanceUi {
                     ui.label(format!("Size: {}", media.size.0));
                     if let Some(hash) = &media.hash {
                         ui.label(format!("Hash: {}", hash.to_string()));
+                    }
+
+                    if let Some(index) = &self.index {
+                        ui.horizontal(|ui| {
+                            ui.text_edit_singleline(&mut self.label);
+                            if ui.button("Add Label").clicked() {
+                                if let Err(e) = index.add_label(&media.filepath, self.label.clone())
+                                {
+                                    warn!(self.logger, "failed to add label";
+                                        "error" => e.to_string(),
+                                    );
+                                }
+                            }
+                        });
+
+                        if let Ok(labels) = index.get_labels(&media.filepath) {
+                            ui.label(format!("Labels: {}", labels.join(",")));
+                        }
                     }
 
                     ui.image(format!("file://{}", path));

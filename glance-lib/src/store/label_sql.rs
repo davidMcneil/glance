@@ -29,7 +29,9 @@ impl LabelSql {
             "CREATE TABLE IF NOT EXISTS label (
                     filepath TEXT NOT NULL,
                     label TEXT NOT NULL,
-                    FOREIGN KEY (filepath) REFERENCES media(filepath)
+                    FOREIGN KEY (filepath) REFERENCES media(filepath),
+                    UNIQUE (filepath, label),
+                    CHECK(label <> '')
                 );",
             [],
         )?;
