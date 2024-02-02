@@ -41,14 +41,13 @@ impl MediaSql {
         let transaction = conn.transaction()?;
         transaction.execute(
             "CREATE TABLE IF NOT EXISTS media (
-                    filepath TEXT NOT NULL,
+                    filepath TEXT NOT NULL PRIMARY KEY,
                     size INTEGER NOT NULL,
                     format TEXT NOT NULL,
                     created TEXT,
                     location TEXT,
                     device TEXT,
-                    hash BLOB,
-                    UNIQUE (filepath)
+                    hash BLOB
                 );",
             [],
         )?;
@@ -90,6 +89,7 @@ impl MediaSql {
         iter.collect()
     }
 
+    #[allow(dead_code)]
     pub fn exists(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {

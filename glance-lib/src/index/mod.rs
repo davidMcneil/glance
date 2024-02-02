@@ -16,8 +16,12 @@ use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::index::media::{Device, Media};
+use crate::store::label_sql::{LabelFilter, LabelSearch, LabelSql};
 use crate::store::media_sql::{MediaDuplicates, MediaFilter, MediaSearch, MediaSql};
 
+use self::label::Label;
+
+mod label;
 pub mod media;
 #[cfg(test)]
 mod tests;
@@ -104,6 +108,7 @@ impl Index {
 
     fn new_impl(mut connection: Connection) -> Result<Self, Error> {
         MediaSql::create_table(&mut connection)?;
+        LabelSql::create_table(&mut connection)?;
         Ok(Self {
             connection,
             logger: NullLoggerBuilder.build()?,
@@ -212,6 +217,28 @@ impl Index {
         }
         Ok(())
     }
+
+    pub fn add_label<P: AsRef<Path>>(&self, path: P, label: String) -> Result<(), Error> {
+        let label = Label {
+            filepath: path.as_ref().to_path_buf(),
+            label,
+        };
+        LabelSql::from(label).insert(&self.connection)?;
+        Ok(())
+    }
+
+    pub fn get_labels<P: AsRef<Path>>(&self, path: P) -> Result<Vec<String>, Error> {
+        LabelSearch::new(
+            &self.connection,
+            LabelFilter {
+                filepath: Some(path.as_ref().to_path_buf().into()),
+            },
+        )?
+        .iter()?
+        .map(from_label_sql_result)
+        .map(|label| label.map(|l| l.label))
+        .collect()
+    }
 }
 
 fn file_to_media_row(
@@ -308,6 +335,10 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
 
 fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {
     media_sql.map(|m| m.into()).map_err(|e| e.into())
+}
+
+fn from_label_sql_result(label_sql: Result<LabelSql, rusqlite::Error>) -> Result<Label, Error> {
+    label_sql.map(|l| l.into()).map_err(|e| e.into())
 }
 
 fn exif_field_to_string(field: &exif::Field) -> String {

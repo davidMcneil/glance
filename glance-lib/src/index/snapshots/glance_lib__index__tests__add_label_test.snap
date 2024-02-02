@@ -1,0 +1,10 @@
+---
+source: glance-lib/src/index/tests.rs
+expression: index.get_labels(first.filepath.clone())
+---
+Ok(
+    [
+        "all",
+        "test",
+    ],
+)

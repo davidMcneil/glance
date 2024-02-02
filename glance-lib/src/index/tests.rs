@@ -45,3 +45,21 @@ fn add_directory_test() -> Result<()> {
     assert_debug_snapshot!(data);
     Ok(())
 }
+
+#[test]
+fn add_label_test() -> Result<()> {
+    let mut index = Index::new_for_test(function!())?;
+    let config = AddDirectoryConfig::default();
+    index.add_directory("../test-media", &config)?;
+    let mut data = index.get_media()?;
+    data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+    for media in &data {
+        index.add_label(media.filepath.clone(), "all".to_string())?;
+    }
+    let first = data
+        .get(0)
+        .ok_or_else(|| anyhow!("should have first element"))?;
+    index.add_label(first.filepath.clone(), "test".to_string())?;
+    assert_debug_snapshot!(index.get_labels(first.filepath.clone()));
+    Ok(())
+}
