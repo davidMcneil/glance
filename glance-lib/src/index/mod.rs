@@ -239,6 +239,10 @@ impl Index {
         .map(|label| label.map(|l| l.label))
         .collect()
     }
+
+    pub fn get_all_labels(&self) -> Result<Vec<String>, Error> {
+        LabelSql::get_all_labels(&self.connection).map_err(|e| e.into())
+    }
 }
 
 fn file_to_media_row(

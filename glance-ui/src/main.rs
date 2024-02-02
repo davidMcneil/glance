@@ -37,7 +37,9 @@ struct GlanceUi {
     stats: Option<String>,
     picked_path: Option<String>,
     add_directory_config: AddDirectoryConfig,
-    label: String,
+    label_to_add: String,
+    label_to_filter: Option<String>,
+    all_labels: Vec<String>,
     logger: Logger,
 }
 
@@ -53,7 +55,9 @@ impl GlanceUi {
             stats: Default::default(),
             picked_path: Default::default(),
             add_directory_config: Default::default(),
-            label: Default::default(),
+            label_to_add: Default::default(),
+            label_to_filter: Default::default(),
+            all_labels: Default::default(),
             logger: TerminalLoggerBuilder::new().build().unwrap(),
         }
     }
@@ -90,7 +94,9 @@ impl GlanceUi {
                 self.end_date.and_hms_opt(0, 0, 0).unwrap(),
                 Utc,
             )),
+            label: self.label_to_filter.clone(),
         };
+        self.update_labels();
         if let Some(index) = &self.index {
             self.media_vec = index
                 .get_media_with_filter(media_filter)
@@ -104,6 +110,14 @@ impl GlanceUi {
                 .stats()
                 .ok()
                 .map(|s| serde_json::to_string_pretty(&s).unwrap());
+        }
+    }
+
+    fn update_labels(&mut self) {
+        if let Some(index) = &self.index {
+            if let Ok(all_labels) = index.get_all_labels() {
+                self.all_labels = all_labels;
+            }
         }
     }
 
@@ -223,10 +237,41 @@ impl eframe::App for GlanceUi {
                     };
                 });
 
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_label("Filter by label")
+                        .selected_text(format!(
+                            "{}",
+                            match &self.label_to_filter {
+                                Some(label) => label,
+                                None => "all",
+                            }
+                        ))
+                        .show_ui(ui, |ui| {
+                            if ui
+                                .selectable_value(&mut self.label_to_filter, None, "all")
+                                .changed()
+                            {
+                                self.update_media();
+                            }
+                            for label in self.all_labels.clone() {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.label_to_filter,
+                                        Some(label.clone()),
+                                        label,
+                                    )
+                                    .changed()
+                                {
+                                    self.update_media();
+                                }
+                            }
+                        });
+                });
+
                 if let Some(idx) = self.current_media_idx {
                     let media = self.media_vec.get(idx).unwrap();
-                    let path = media.filepath.display();
-                    ui.label(format!("Path: {}", path));
+                    let path = media.filepath.clone();
+                    ui.label(format!("Path: {}", path.display()));
                     if let Some(created_date) = media.created {
                         ui.label(format!("Taken: {}", created_date.with_timezone(&Local)));
                     }
@@ -241,30 +286,32 @@ impl eframe::App for GlanceUi {
                         ui.label(format!("Hash: {}", hash.to_string()));
                     }
 
-                    if let Some(index) = &self.index {
+                    if let Some(index) = &mut self.index {
                         ui.horizontal(|ui| {
-                            ui.text_edit_singleline(&mut self.label);
+                            ui.text_edit_singleline(&mut self.label_to_add);
                             if ui.button("Add Label").clicked() {
-                                if let Err(e) = index.add_label(&media.filepath, self.label.clone())
-                                {
+                                if let Err(e) = index.add_label(&path, self.label_to_add.clone()) {
                                     warn!(self.logger, "failed to add label";
                                         "error" => e.to_string(),
                                     );
                                 }
+                                if let Ok(all_labels) = index.get_all_labels() {
+                                    self.all_labels = all_labels;
+                                }
                             }
                         });
 
-                        if let Ok(labels) = index.get_labels(&media.filepath) {
+                        if let Ok(labels) = index.get_labels(&path) {
                             ui.label(format!("Labels: {}", labels.join(",")));
                         }
                     }
 
-                    ui.image(format!("file://{}", path));
+                    ui.image(format!("file://{}", path.display()));
 
                     ui.horizontal(|ui| {
                         for i in 1..10 {
-                            if let Some(media) = self.media_vec.get(i + idx) {
-                                ui.image(format!("file://{}", media.filepath.display()));
+                            if let Some(next_media) = self.media_vec.get(i + idx) {
+                                ui.image(format!("file://{}", next_media.filepath.display()));
                             }
                         }
                     });

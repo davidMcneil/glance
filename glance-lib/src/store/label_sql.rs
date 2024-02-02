@@ -49,6 +49,12 @@ impl LabelSql {
             ":label": self.label,
         })
     }
+
+    pub fn get_all_labels(conn: &Connection) -> Result<Vec<String>, Error> {
+        let mut stmt = conn.prepare("SELECT DISTINCT label FROM label ORDER BY label")?;
+        let iter = stmt.query_map([], |row| row.get(0))?;
+        iter.collect()
+    }
 }
 
 impl<'conn> LabelSearch<'conn> {

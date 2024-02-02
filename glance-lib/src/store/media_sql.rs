@@ -7,6 +7,7 @@ use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
 const COLUMNS: &str = "filepath, size, format, created, location, device, hash";
+const COLUMNS_WITH_PREFIX: &str = "media.filepath, size, format, created, location, device, hash";
 
 /// Low level type for interacting with media rows
 #[derive(Debug)]
@@ -21,10 +22,11 @@ pub(crate) struct MediaSql {
     pub hash: Option<HashSql>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct MediaFilter {
     pub created_start: Option<DateTime<Utc>>,
     pub created_end: Option<DateTime<Utc>>,
+    pub label: Option<String>,
 }
 
 pub(crate) struct MediaSearch<'conn> {
@@ -100,28 +102,35 @@ impl MediaSql {
 
 impl<'conn> MediaSearch<'conn> {
     pub fn new(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
-        let statement = match (&filter.created_start, &filter.created_end) {
-            (Some(_), Some(_)) => conn.prepare(formatcp!(
+        let base_select = match filter.label {
+            Some(_) => formatcp!(
+                "SELECT {COLUMNS_WITH_PREFIX} FROM label \
+                    JOIN media ON media.filepath = label.filepath \
+                    WHERE label = :label",
+            ),
+            None => formatcp!(
                 "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                        AND created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (Some(_), None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                    ORDER BY created",
-            ))?,
-            (None, Some(_)) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (None, None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    ORDER BY created"
-            ))?,
+                    WHERE true",
+            ),
         };
+        let wheres_and_order_by = match (&filter.created_start, &filter.created_end) {
+            (Some(_), Some(_)) => formatcp!(
+                "AND created >= :created_start \
+                    AND created <= :created_end \
+                    ORDER BY created",
+            ),
+            (Some(_), None) => formatcp!(
+                "AND created >= :created_start \
+                    ORDER BY created",
+            ),
+            (None, Some(_)) => formatcp!(
+                "AND created <= :created_end \
+                    ORDER BY created",
+            ),
+            (None, None) => formatcp!("ORDER BY created"),
+        };
+        let sql = format!("{base_select}\n{wheres_and_order_by}");
+        let statement = conn.prepare(&sql)?;
         Ok(MediaSearch { statement, filter })
     }
 
@@ -150,6 +159,9 @@ impl MediaFilter {
         }
         if let Some(created_end) = &self.created_end {
             result.push((":created_end", created_end as &dyn ToSql))
+        }
+        if let Some(label) = &self.label {
+            result.push((":label", label as &dyn ToSql))
         }
         result
     }
