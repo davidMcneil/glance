@@ -33,6 +33,7 @@ struct GlanceUi {
     media_vec: Vec<Media>,
     current_media_idx: Option<usize>,
     previously_seen_images: VecDeque<String>,
+    filter_by_date: bool,
     start_date: NaiveDate,
     end_date: NaiveDate,
     stats: Option<String>,
@@ -48,12 +49,13 @@ struct GlanceUi {
 impl GlanceUi {
     fn new() -> Self {
         Self {
-            start_date: NaiveDate::from_ymd_opt(2008, 1, 1).unwrap(),
-            end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
             index: Default::default(),
             media_vec: Default::default(),
             current_media_idx: Default::default(),
             previously_seen_images: Default::default(),
+            filter_by_date: Default::default(),
+            start_date: NaiveDate::from_ymd_opt(2008, 1, 1).unwrap(),
+            end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
             stats: Default::default(),
             picked_path: Default::default(),
             add_directory_config: Default::default(),
@@ -89,16 +91,25 @@ impl GlanceUi {
 
     fn update_media(&mut self) {
         let media_filter = MediaFilter {
-            created_start: Some(chrono::DateTime::from_naive_utc_and_offset(
-                self.start_date.and_hms_opt(0, 0, 0).unwrap(),
-                Utc,
-            )),
-            created_end: Some(chrono::DateTime::from_naive_utc_and_offset(
-                self.end_date.and_hms_opt(0, 0, 0).unwrap(),
-                Utc,
-            )),
+            created_start: if self.filter_by_date {
+                Some(chrono::DateTime::from_naive_utc_and_offset(
+                    self.start_date.and_hms_opt(0, 0, 0).unwrap(),
+                    Utc,
+                ))
+            } else {
+                None
+            },
+            created_end: if self.filter_by_date {
+                Some(chrono::DateTime::from_naive_utc_and_offset(
+                    self.end_date.and_hms_opt(0, 0, 0).unwrap(),
+                    Utc,
+                ))
+            } else {
+                None
+            },
             label: self.label_to_filter.clone(),
         };
+
         self.update_labels();
         if let Some(index) = &self.index {
             self.media_vec = index
@@ -230,31 +241,39 @@ impl eframe::App for GlanceUi {
                 });
 
                 egui::Window::new("Filters").show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        if ui
-                            .add(
-                                egui_extras::DatePickerButton::new(&mut self.start_date)
-                                    .id_source("start"),
-                            )
-                            .changed()
-                        {
-                            self.update_media();
-                        };
-                        ui.label("Start date");
-                    });
+                    if ui
+                        .checkbox(&mut self.filter_by_date, "Filter by date")
+                        .changed()
+                    {
+                        self.update_media();
+                    }
+                    if self.filter_by_date {
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add(
+                                    egui_extras::DatePickerButton::new(&mut self.start_date)
+                                        .id_source("start"),
+                                )
+                                .changed()
+                            {
+                                self.update_media();
+                            };
+                            ui.label("Start date");
+                        });
 
-                    ui.horizontal(|ui| {
-                        if ui
-                            .add(
-                                egui_extras::DatePickerButton::new(&mut self.end_date)
-                                    .id_source("end"),
-                            )
-                            .changed()
-                        {
-                            self.update_media();
-                        };
-                        ui.label("End date");
-                    });
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add(
+                                    egui_extras::DatePickerButton::new(&mut self.end_date)
+                                        .id_source("end"),
+                                )
+                                .changed()
+                            {
+                                self.update_media();
+                            };
+                            ui.label("End date");
+                        });
+                    }
 
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("Filter by label")
