@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 
 use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
+use egui::{Vec2, Widget};
 use glance_lib::index::media::{Media, MediaFilter};
 use glance_lib::index::{AddDirectoryConfig, Index};
 use slog::{warn, Logger};
@@ -13,7 +14,7 @@ use sloggers::Build;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([600.0, 800.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 800.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -41,6 +42,7 @@ struct GlanceUi {
     label_to_filter: Option<String>,
     all_labels: Vec<String>,
     logger: Logger,
+    rotation: u8,
 }
 
 impl GlanceUi {
@@ -59,6 +61,7 @@ impl GlanceUi {
             label_to_filter: Default::default(),
             all_labels: Default::default(),
             logger: TerminalLoggerBuilder::new().build().unwrap(),
+            rotation: Default::default(),
         }
     }
 
@@ -136,8 +139,8 @@ impl GlanceUi {
 
 impl eframe::App for GlanceUi {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::both().show(ui, |ui| {
+        egui::CentralPanel::default().show(ctx, |_ui| {
+            egui::Window::new("Browse Files").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     if ui.button("Open folder…").clicked() {
                         if let Some(path) = rfd::FileDialog::new().pick_folder() {
@@ -151,10 +154,11 @@ impl eframe::App for GlanceUi {
                     }
                 });
 
-                ui.horizontal(|ui| {
-                    if ui.button("Index Chosen Folder").clicked() {
-                        self.add_directory();
-                    }
+                if ui.button("Index Chosen Folder").clicked() {
+                    self.add_directory();
+                }
+
+                ui.collapsing("Index Config", |ui| {
                     ui.checkbox(&mut self.add_directory_config.hash, "hash");
                     ui.checkbox(
                         &mut self.add_directory_config.filter_by_media,
@@ -169,108 +173,127 @@ impl eframe::App for GlanceUi {
                         "calculate nearest city",
                     );
                 });
+            });
 
-                ui.horizontal(|ui| {
-                    if ui.button("Previous").clicked()
-                        || ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft))
-                    {
-                        if let Some(idx) = self.current_media_idx {
-                            if let Some(media) = self.media_vec.get(idx) {
-                                self.add_previously_seen_image(
-                                    media.filepath.display().to_string(),
-                                    ctx,
-                                );
+            if self.index.is_some() {
+                egui::Window::new("Viewing").show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Previous").clicked()
+                            || ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft))
+                        {
+                            if let Some(idx) = self.current_media_idx {
+                                if let Some(media) = self.media_vec.get(idx) {
+                                    self.add_previously_seen_image(
+                                        media.filepath.display().to_string(),
+                                        ctx,
+                                    );
+                                }
                             }
+
+                            self.current_media_idx =
+                                self.current_media_idx
+                                    .map(|idx| if idx == 0 { 0 } else { idx - 1 });
                         }
 
-                        self.current_media_idx =
-                            self.current_media_idx
-                                .map(|idx| if idx == 0 { 0 } else { idx - 1 });
+                        if ui.button("Next").clicked()
+                            || ctx.input(|i| i.key_pressed(egui::Key::ArrowRight))
+                        {
+                            if let Some(idx) = self.current_media_idx {
+                                if let Some(media) = self.media_vec.get(idx) {
+                                    self.add_previously_seen_image(
+                                        media.filepath.display().to_string(),
+                                        ctx,
+                                    );
+                                }
+                            }
+
+                            self.current_media_idx = self.current_media_idx.map(|idx| {
+                                if idx == self.media_vec.len() - 1 {
+                                    idx
+                                } else {
+                                    idx + 1
+                                }
+                            });
+                        }
+                    });
+
+                    if ui.button("Rotate").clicked() {
+                        self.rotation += 1;
+                        if self.rotation == 4 {
+                            self.rotation = 0;
+                        }
                     }
 
-                    if ui.button("Next").clicked()
-                        || ctx.input(|i| i.key_pressed(egui::Key::ArrowRight))
-                    {
-                        if let Some(idx) = self.current_media_idx {
-                            if let Some(media) = self.media_vec.get(idx) {
-                                self.add_previously_seen_image(
-                                    media.filepath.display().to_string(),
-                                    ctx,
-                                );
-                            }
-                        }
-
-                        self.current_media_idx = self.current_media_idx.map(|idx| {
-                            if idx == self.media_vec.len() - 1 {
-                                idx
-                            } else {
-                                idx + 1
-                            }
-                        });
+                    if ui.button("Clear Cache").clicked() {
+                        ctx.forget_all_images();
                     }
                 });
 
-                if ui.button("Clear Cache").clicked() {
-                    ctx.forget_all_images();
-                }
+                egui::Window::new("Filters").show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui_extras::DatePickerButton::new(&mut self.start_date)
+                                    .id_source("start"),
+                            )
+                            .changed()
+                        {
+                            self.update_media();
+                        };
+                        ui.label("Start date");
+                    });
 
-                ui.horizontal(|ui| {
-                    ui.label("Start date");
-                    if ui
-                        .add(
-                            egui_extras::DatePickerButton::new(&mut self.start_date)
-                                .id_source("start"),
-                        )
-                        .changed()
-                    {
-                        self.update_media();
-                    };
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui_extras::DatePickerButton::new(&mut self.end_date)
+                                    .id_source("end"),
+                            )
+                            .changed()
+                        {
+                            self.update_media();
+                        };
+                        ui.label("End date");
+                    });
 
-                    ui.label("End date");
-                    if ui
-                        .add(
-                            egui_extras::DatePickerButton::new(&mut self.end_date).id_source("end"),
-                        )
-                        .changed()
-                    {
-                        self.update_media();
-                    };
-                });
-
-                ui.horizontal(|ui| {
-                    egui::ComboBox::from_label("Filter by label")
-                        .selected_text(format!(
-                            "{}",
-                            match &self.label_to_filter {
-                                Some(label) => label,
-                                None => "all",
-                            }
-                        ))
-                        .show_ui(ui, |ui| {
-                            if ui
-                                .selectable_value(&mut self.label_to_filter, None, "all")
-                                .changed()
-                            {
-                                self.update_media();
-                            }
-                            for label in self.all_labels.clone() {
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_label("Filter by label")
+                            .selected_text(format!(
+                                "{}",
+                                match &self.label_to_filter {
+                                    Some(label) => label,
+                                    None => "all",
+                                }
+                            ))
+                            .show_ui(ui, |ui| {
                                 if ui
-                                    .selectable_value(
-                                        &mut self.label_to_filter,
-                                        Some(label.clone()),
-                                        label,
-                                    )
+                                    .selectable_value(&mut self.label_to_filter, None, "all")
                                     .changed()
                                 {
                                     self.update_media();
                                 }
-                            }
-                        });
+                                for label in self.all_labels.clone() {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.label_to_filter,
+                                            Some(label.clone()),
+                                            label,
+                                        )
+                                        .changed()
+                                    {
+                                        self.update_media();
+                                    }
+                                }
+                            });
+                    });
                 });
+            }
 
-                if let Some(idx) = self.current_media_idx {
-                    let media = self.media_vec.get(idx).unwrap();
-                    let path = media.filepath.clone();
+            if let Some(idx) = self.current_media_idx {
+                let media = self.media_vec.get(idx).unwrap();
+                let path = media.filepath.clone();
+
+                egui::Window::new("Image Info").show(ctx, |ui| {
                     ui.label(format!("Path: {}", path.display()));
                     if let Some(created_date) = media.created {
                         ui.label(format!("Taken: {}", created_date.with_timezone(&Local)));
@@ -285,8 +308,10 @@ impl eframe::App for GlanceUi {
                     if let Some(hash) = &media.hash {
                         ui.label(format!("Hash: {}", hash.to_string()));
                     }
+                });
 
-                    if let Some(index) = &mut self.index {
+                if let Some(index) = &mut self.index {
+                    egui::Window::new("Labels").show(ctx, |ui| {
                         ui.horizontal(|ui| {
                             ui.text_edit_singleline(&mut self.label_to_add);
                             if ui.button("Add Label").clicked() {
@@ -315,9 +340,18 @@ impl eframe::App for GlanceUi {
                         if let Ok(labels) = index.get_labels(&path) {
                             ui.label(format!("Labels: {}", labels.join(",")));
                         }
-                    }
+                    });
+                }
 
-                    ui.image(format!("file://{}", path.display()));
+                egui::Window::new("Image").show(ctx, |ui| {
+                    let mut image = egui::widgets::Image::new(format!("file://{}", path.display()));
+                    if self.rotation != 0 {
+                        image = image.rotate(
+                            self.rotation as f32 * std::f32::consts::PI / 2.0,
+                            Vec2::splat(0.5),
+                        );
+                    }
+                    image.ui(ui);
 
                     ui.horizontal(|ui| {
                         for i in 1..10 {
@@ -326,12 +360,14 @@ impl eframe::App for GlanceUi {
                             }
                         }
                     });
-                }
+                });
 
-                if let Some(stats) = &self.stats {
-                    ui.label(stats);
-                }
-            });
+                egui::Window::new("Stats").show(ctx, |ui| {
+                    if let Some(stats) = &self.stats {
+                        ui.label(stats);
+                    }
+                });
+            }
         });
     }
 }
