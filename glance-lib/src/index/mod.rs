@@ -46,12 +46,12 @@ pub struct Index {
 #[serde_as]
 #[derive(Debug, Serialize)]
 pub struct Stats {
-    count: i64,
+    pub count: i64,
     #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
-    count_by_format: HashMap<Option<String>, i64>,
+    pub count_by_format: HashMap<Option<String>, i64>,
     #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
-    count_by_device: HashMap<Option<String>, i64>,
-    duplicates: usize,
+    pub count_by_device: HashMap<Option<String>, i64>,
+    pub duplicates: usize,
 }
 
 #[derive(Debug)]

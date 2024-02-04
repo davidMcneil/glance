@@ -6,7 +6,7 @@ use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
 use egui::{Vec2, Widget};
 use glance_lib::index::media::{stats_from_media, Media, MediaFilter};
-use glance_lib::index::{AddDirectoryConfig, Index};
+use glance_lib::index::{AddDirectoryConfig, Index, Stats};
 use slog::{warn, Logger};
 use sloggers::terminal::TerminalLoggerBuilder;
 use sloggers::Build;
@@ -36,12 +36,16 @@ struct GlanceUi {
     filter_by_date: bool,
     start_date: NaiveDate,
     end_date: NaiveDate,
-    stats: Option<String>,
+    index_stats: Option<Stats>,
+    filtered_stats: Option<Stats>,
+    filtered_stats_string: Option<String>,
     picked_path: Option<String>,
     add_directory_config: AddDirectoryConfig,
     label_to_add: String,
     label_to_filter: Option<String>,
     all_labels: Vec<String>,
+    device_to_filter: Option<String>,
+    format_to_filter: Option<String>,
     logger: Logger,
     rotation: u8,
 }
@@ -56,12 +60,16 @@ impl GlanceUi {
             filter_by_date: Default::default(),
             start_date: NaiveDate::from_ymd_opt(2008, 1, 1).unwrap(),
             end_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-            stats: Default::default(),
+            index_stats: Default::default(),
+            filtered_stats: Default::default(),
+            filtered_stats_string: Default::default(),
             picked_path: Default::default(),
             add_directory_config: Default::default(),
             label_to_add: Default::default(),
             label_to_filter: Default::default(),
             all_labels: Default::default(),
+            device_to_filter: Default::default(),
+            format_to_filter: Default::default(),
             logger: TerminalLoggerBuilder::new().build().unwrap(),
             rotation: Default::default(),
         }
@@ -108,6 +116,8 @@ impl GlanceUi {
                 None
             },
             label: self.label_to_filter.clone(),
+            device: self.device_to_filter.clone(),
+            format: self.format_to_filter.clone(),
         };
 
         self.update_labels();
@@ -120,8 +130,11 @@ impl GlanceUi {
             } else {
                 None
             };
-            self.stats = stats_from_media(&self.media_vec)
-                .ok()
+            self.index_stats = index.stats().ok();
+            self.filtered_stats = stats_from_media(&self.media_vec).ok();
+            self.filtered_stats_string = self
+                .filtered_stats
+                .as_ref()
                 .map(|s| serde_json::to_string_pretty(&s).unwrap());
         }
     }
@@ -275,7 +288,7 @@ impl eframe::App for GlanceUi {
                     }
 
                     ui.horizontal(|ui| {
-                        egui::ComboBox::from_label("Filter by label")
+                        egui::ComboBox::from_label("label")
                             .selected_text(format!(
                                 "{}",
                                 match &self.label_to_filter {
@@ -296,6 +309,84 @@ impl eframe::App for GlanceUi {
                                             &mut self.label_to_filter,
                                             Some(label.clone()),
                                             label,
+                                        )
+                                        .changed()
+                                    {
+                                        self.update_media();
+                                    }
+                                }
+                            });
+                    });
+
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_label("device")
+                            .selected_text(format!(
+                                "{}",
+                                match &self.device_to_filter {
+                                    Some(device) => device,
+                                    None => "all",
+                                }
+                            ))
+                            .show_ui(ui, |ui| {
+                                if ui
+                                    .selectable_value(&mut self.device_to_filter, None, "all")
+                                    .changed()
+                                {
+                                    self.update_media();
+                                }
+                                let mut devices = Vec::new();
+                                if let Some(stats) = &self.index_stats {
+                                    for (maybe_device, _) in &stats.count_by_device {
+                                        if let Some(device) = maybe_device {
+                                            devices.push(device.clone());
+                                        }
+                                    }
+                                }
+                                for device in devices {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.device_to_filter,
+                                            Some(device.clone()),
+                                            device,
+                                        )
+                                        .changed()
+                                    {
+                                        self.update_media();
+                                    }
+                                }
+                            });
+                    });
+
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_label("format")
+                            .selected_text(format!(
+                                "{}",
+                                match &self.format_to_filter {
+                                    Some(device) => device,
+                                    None => "all",
+                                }
+                            ))
+                            .show_ui(ui, |ui| {
+                                if ui
+                                    .selectable_value(&mut self.format_to_filter, None, "all")
+                                    .changed()
+                                {
+                                    self.update_media();
+                                }
+                                let mut formats = Vec::new();
+                                if let Some(stats) = &self.index_stats {
+                                    for (maybe_format, _) in &stats.count_by_format {
+                                        if let Some(format) = maybe_format {
+                                            formats.push(format.clone());
+                                        }
+                                    }
+                                }
+                                for format in formats {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.format_to_filter,
+                                            Some(format.clone()),
+                                            format,
                                         )
                                         .changed()
                                     {
@@ -381,8 +472,8 @@ impl eframe::App for GlanceUi {
                 });
 
                 egui::Window::new("Stats").show(ctx, |ui| {
-                    if let Some(stats) = &self.stats {
-                        ui.label(stats);
+                    if let Some(stats_string) = self.filtered_stats_string.clone() {
+                        ui.label(stats_string);
                     }
                 });
             }

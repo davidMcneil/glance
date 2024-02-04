@@ -27,6 +27,8 @@ pub struct MediaFilter {
     pub created_start: Option<DateTime<Utc>>,
     pub created_end: Option<DateTime<Utc>>,
     pub label: Option<String>,
+    pub device: Option<String>,
+    pub format: Option<String>,
 }
 
 pub(crate) struct MediaSearch<'conn> {
@@ -113,6 +115,14 @@ impl<'conn> MediaSearch<'conn> {
                     WHERE true",
             ),
         };
+        let device_where = match filter.device {
+            Some(_) => "AND device = :device",
+            None => "",
+        };
+        let format_where = match filter.format {
+            Some(_) => "AND format = :format",
+            None => "",
+        };
         let wheres_and_order_by = match (&filter.created_start, &filter.created_end) {
             (Some(_), Some(_)) => formatcp!(
                 "AND created >= :created_start \
@@ -129,7 +139,7 @@ impl<'conn> MediaSearch<'conn> {
             ),
             (None, None) => formatcp!("ORDER BY created"),
         };
-        let sql = format!("{base_select}\n{wheres_and_order_by}");
+        let sql = format!("{base_select}\n{device_where}\n{format_where}\n{wheres_and_order_by}");
         let statement = conn.prepare(&sql)?;
         Ok(MediaSearch { statement, filter })
     }
@@ -162,6 +172,12 @@ impl MediaFilter {
         }
         if let Some(label) = &self.label {
             result.push((":label", label as &dyn ToSql))
+        }
+        if let Some(device) = &self.device {
+            result.push((":device", device as &dyn ToSql))
+        }
+        if let Some(format) = &self.format {
+            result.push((":format", format as &dyn ToSql))
         }
         result
     }
