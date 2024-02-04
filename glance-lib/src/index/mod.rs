@@ -264,8 +264,15 @@ impl Index {
         })?;
         let label_folder = format!("{path_to_index}/glance-exports/{label}");
         fs::create_dir_all(label_folder.clone())?;
-        for (i, media) in labeled_media.iter().enumerate() {
-            std::os::unix::fs::symlink(&media.filepath, format!("{label_folder}/{i}"))?;
+        for media in labeled_media {
+            if let Some(filename) = media.filepath.file_name() {
+                if let Some(filename) = filename.to_str() {
+                    std::os::unix::fs::symlink(
+                        &media.filepath,
+                        format!("{label_folder}/{filename}"),
+                    )?;
+                }
+            }
         }
         info!(self.logger, "exported all images with label";
             "label" => label,
