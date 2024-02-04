@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
 use egui::{Vec2, Widget};
-use glance_lib::index::media::{Media, MediaFilter};
+use glance_lib::index::media::{stats_from_media, Media, MediaFilter};
 use glance_lib::index::{AddDirectoryConfig, Index};
 use slog::{warn, Logger};
 use sloggers::terminal::TerminalLoggerBuilder;
@@ -120,8 +120,7 @@ impl GlanceUi {
             } else {
                 None
             };
-            self.stats = index
-                .stats()
+            self.stats = stats_from_media(&self.media_vec)
                 .ok()
                 .map(|s| serde_json::to_string_pretty(&s).unwrap());
         }

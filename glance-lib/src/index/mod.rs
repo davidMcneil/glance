@@ -279,7 +279,7 @@ fn file_to_media_row(
     let mut row = Media {
         filepath: path.clone(),
         size: metadata.len().into(),
-        format,
+        format: format.name().to_string(),
         created,
         location: None,
         device: None,

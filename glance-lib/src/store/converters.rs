@@ -2,7 +2,6 @@
 
 use blake3::Hash;
 use derive_more::{From, Into};
-use file_format::FileFormat;
 use std::{ffi::OsStr, path::PathBuf};
 
 use rusqlite::{
@@ -11,7 +10,7 @@ use rusqlite::{
 };
 
 #[derive(Debug, From, Into)]
-pub(crate) struct FileFormatSql(pub FileFormat);
+pub(crate) struct FileFormatSql(pub String);
 
 impl ToSql for FileFormatSql {
     fn to_sql(&self) -> Result<ToSqlOutput<'_>, Error> {
@@ -21,7 +20,7 @@ impl ToSql for FileFormatSql {
 
 impl FromSql for FileFormatSql {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        Ok(FileFormatSql(FileFormat::from_bytes(value.as_bytes()?)))
+        Ok(FileFormatSql(value.as_str()?.to_string()))
     }
 }
 

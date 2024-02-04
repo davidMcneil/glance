@@ -23,7 +23,10 @@ fn file_to_media_row_test() -> Result<()> {
             file_to_media_row(&entry, &config)?.ok_or_else(|| anyhow!("should be some"))?;
         assert_eq!(media_row.filepath, entry.path());
         assert_eq!(media_row.size, 7958.into());
-        assert_eq!(media_row.format, FileFormat::JointPhotographicExpertsGroup);
+        assert_eq!(
+            media_row.format,
+            FileFormat::JointPhotographicExpertsGroup.name()
+        );
         assert!(media_row.created.is_some());
         assert_eq!(
             media_row.device.ok_or_else(|| anyhow!("missing device"))?,
