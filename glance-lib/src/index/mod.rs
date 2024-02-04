@@ -1,3 +1,9 @@
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::symlink;
+#[cfg(target_os = "macos")]
+use std::os::unix::fs::symlink;
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
 use std::{collections::HashMap, fs, path::Path};
 
 use chrono::{DateTime, Utc};
@@ -267,10 +273,7 @@ impl Index {
         for media in labeled_media {
             if let Some(filename) = media.filepath.file_name() {
                 if let Some(filename) = filename.to_str() {
-                    std::os::unix::fs::symlink(
-                        &media.filepath,
-                        format!("{label_folder}/{filename}"),
-                    )?;
+                    symlink(&media.filepath, format!("{label_folder}/{filename}"))?;
                 }
             }
         }
