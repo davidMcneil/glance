@@ -86,23 +86,20 @@ fn get_media_with_label_filter_test() -> Result<()> {
     index.add_label(first.filepath.clone(), "test".to_string())?;
 
     let labeled_first_media = index.get_media_with_filter(MediaFilter {
-        created_start: None,
-        created_end: None,
         label: Some("test".to_string()),
+        ..Default::default()
     })?;
     assert_eq!(labeled_first_media.len(), 1);
 
     let labeled_all_media = index.get_media_with_filter(MediaFilter {
-        created_start: None,
-        created_end: None,
         label: Some("all".to_string()),
+        ..Default::default()
     })?;
     assert_eq!(labeled_all_media.len(), data.len());
 
     let labeled_invalid_media = index.get_media_with_filter(MediaFilter {
-        created_start: None,
-        created_end: None,
         label: Some("invalid".to_string()),
+        ..Default::default()
     })?;
     assert_eq!(labeled_invalid_media.len(), 0);
     Ok(())

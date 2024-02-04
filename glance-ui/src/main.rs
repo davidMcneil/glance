@@ -318,6 +318,24 @@ impl eframe::App for GlanceUi {
                             });
                     });
 
+                    if let Some(index) = &self.index {
+                        if let Some(picked_path) = &self.picked_path {
+                            if let Some(label) = &self.label_to_filter {
+                                if ui.button("export label").clicked() {
+                                    if let Err(e) = index.export_images_with_label(
+                                        picked_path.clone(),
+                                        label.clone(),
+                                    ) {
+                                        warn!(self.logger, "failed to export label";
+                                            "label" => label,
+                                            "error" => e.to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("device")
                             .selected_text(format!(

@@ -252,6 +252,27 @@ impl Index {
     pub fn get_all_labels(&self) -> Result<Vec<String>, Error> {
         LabelSql::get_all_labels(&self.connection).map_err(|e| e.into())
     }
+
+    pub fn export_images_with_label(
+        &self,
+        path_to_index: String,
+        label: String,
+    ) -> Result<(), Error> {
+        let labeled_media = self.get_media_with_filter(MediaFilter {
+            label: Some(label.clone()),
+            ..Default::default()
+        })?;
+        let label_folder = format!("{path_to_index}/glance-exports/{label}");
+        fs::create_dir_all(label_folder.clone())?;
+        for (i, media) in labeled_media.iter().enumerate() {
+            std::os::unix::fs::symlink(&media.filepath, format!("{label_folder}/{i}"))?;
+        }
+        info!(self.logger, "exported all images with label";
+            "label" => label,
+            "label_folder" => label_folder,
+        );
+        Ok(())
+    }
 }
 
 fn file_to_media_row(
