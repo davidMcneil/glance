@@ -73,6 +73,22 @@ impl MediaSql {
         })
     }
 
+    pub fn rename(
+        old_filepath: &PathBufSql,
+        new_filepath: &PathBufSql,
+        conn: &Connection,
+    ) -> Result<usize, Error> {
+        let mut stmt = conn.prepare(formatcp!(
+            "UPDATE media
+            SET filepath = :new_filepath
+            WHERE filepath = :old_filepath"
+        ))?;
+        stmt.execute(named_params! {
+            ":new_filepath": new_filepath,
+            ":old_filepath": old_filepath,
+        })
+    }
+
     pub fn count(conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare("SELECT count(*) from media")?;
         stmt.query_row([], |row| row.get(0))
