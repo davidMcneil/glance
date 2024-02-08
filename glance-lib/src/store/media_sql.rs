@@ -74,9 +74,9 @@ impl MediaSql {
     }
 
     pub fn rename(
+        conn: &Connection,
         old_filepath: &PathBufSql,
         new_filepath: &PathBufSql,
-        conn: &Connection,
     ) -> Result<usize, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "UPDATE media
@@ -106,7 +106,14 @@ impl MediaSql {
         iter.collect()
     }
 
-    pub fn exists(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
+    pub fn exists_by_filepath(conn: &Connection, filepath: &PathBufSql) -> Result<bool, Error> {
+        let mut stmt = conn.prepare("SELECT 1 FROM media WHERE filepath = :filepath")?;
+        stmt.exists(named_params! {
+            ":filepath": filepath,
+        })
+    }
+
+    pub fn exists_by_hash(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {
             ":hash": hash,

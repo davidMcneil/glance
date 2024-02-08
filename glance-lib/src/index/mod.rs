@@ -142,6 +142,14 @@ impl Index {
                 let logger = self
                     .logger
                     .new(o!("path" => entry.path().display().to_string()));
+
+                let filepath = entry.path().to_path_buf().into();
+                if MediaSql::exists_by_filepath(&transaction, &filepath)? {
+                    trace!(logger, "duplicate filepath");
+                    duplicates += 1;
+                    continue;
+                }
+
                 match file_to_media_row(&entry, config) {
                     Ok(Some(new_row)) => {
                         trace!(logger, "adding file");
@@ -235,10 +243,10 @@ impl Index {
 
                 fs::rename(&media.filepath, &destination_path)?;
                 MediaSql::rename(
+                    &self.connection,
                     // TODO: cleanup clones
                     &media.filepath.clone().into(),
                     &destination_path.clone().into(),
-                    &self.connection,
                 )?;
 
                 trace!(self.logger, "standardized naming";
