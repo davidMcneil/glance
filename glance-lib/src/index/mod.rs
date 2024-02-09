@@ -16,7 +16,7 @@ use reverse_geocoder::ReverseGeocoder;
 use rusqlite::{Connection, ErrorCode};
 use serde::Serialize;
 use serde_with::{serde_as, FromInto};
-use slog::{error, info, Logger};
+use slog::{error, info, o, trace, Logger};
 use sloggers::{null::NullLoggerBuilder, Build};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
@@ -131,40 +131,68 @@ impl Index {
         path: P,
         config: &AddDirectoryConfig,
     ) -> Result<(), Error> {
-        info!(self.logger, "adding directory";
-            "path" => path.as_ref().display(),
-        );
+        let logger = self
+            .logger
+            .new(o!("path" => path.as_ref().display().to_string()));
+        info!(logger, "adding directory");
+        let mut files = 0;
+        let mut dirs = 0;
+        let mut duplicates = 0;
+        let mut filtered = 0;
+        let mut failed = 0;
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
+
+            if entry.file_type().is_dir() {
+                dirs += 1;
+            }
+
             if entry.file_type().is_file() {
+                files += 1;
+                let logger = self
+                    .logger
+                    .new(o!("path" => entry.path().display().to_string()));
+
+                let filepath = entry.path().to_path_buf().into();
+                if MediaSql::exists_by_filepath(&transaction, &filepath)? {
+                    trace!(logger, "duplicate filepath");
+                    duplicates += 1;
+                    continue;
+                }
+
                 match file_to_media_row(&entry, config) {
                     Ok(Some(new_row)) => {
-                        info!(self.logger, "adding row";
-                            "path" => new_row.filepath.display(),
-                        );
+                        trace!(logger, "adding file");
                         let res = MediaSql::from(new_row).insert(&transaction);
-                        if let Some(e) = res.as_ref().err().and_then(|e| e.sqlite_error_code()) {
-                            if e == ErrorCode::ConstraintViolation {
-                                error!(self.logger, "duplicate file";
-                                    "path" => entry.path().display(),
-                                );
-                                continue;
-                            }
+                        if duplicate_row(&res) {
+                            trace!(logger, "duplicate file");
+                            duplicates += 1;
+                            continue;
                         }
                         res?;
                     }
-                    Ok(None) => (),
+                    Ok(None) => {
+                        trace!(logger, "filtered file");
+                        filtered += 1;
+                    }
                     Err(e) => {
-                        error!(self.logger, "failed to process file";
-                            "path" => entry.path().display(),
+                        error!(logger, "failed to process file";
                             "error" => e.to_string(),
-                        )
+                        );
+                        failed += 1;
                     }
                 }
             }
         }
         transaction.commit()?;
+        info!(logger, "added directory";
+            "files" => files,
+            "dirs" => dirs,
+            "duplicates" => duplicates,
+            "filtered" => filtered,
+            "failed" => failed,
+        );
         Ok(())
     }
 
@@ -199,11 +227,18 @@ impl Index {
     }
 
     pub fn standardize_naming<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        let logger = self
+            .logger
+            .new(o!("path" => path.as_ref().display().to_string()));
+        info!(logger, "standardizing naming");
         let path = path.as_ref();
+        let mut total = 0;
+        let mut renamed = 0;
         for media in MediaSearch::new_with_filter_defaults(&self.connection)?
             .iter()?
             .map(from_media_sql_result)
         {
+            total += 1;
             let media = media?;
             if let Some(created) = media.created {
                 let folder_name = created.format("%Y-%m").to_string();
@@ -213,14 +248,29 @@ impl Index {
                 };
                 fs::create_dir_all(&destination_folder)?;
                 let destination_path = destination_folder.join(destination_file_name);
-                fs::rename(&media.filepath, &destination_path)?;
+                if media.filepath == destination_path {
+                    continue;
+                }
 
-                info!(self.logger, "standardize naming";
+                fs::rename(&media.filepath, &destination_path)?;
+                MediaSql::rename(
+                    &self.connection,
+                    // TODO: cleanup clones
+                    &media.filepath.clone().into(),
+                    &destination_path.clone().into(),
+                )?;
+
+                trace!(self.logger, "standardized naming";
                     "old_path" => media.filepath.display(),
                     "new_path" => destination_path.display(),
                 );
+                renamed += 1;
             }
         }
+        info!(logger, "standardized naming";
+            "total" => total,
+            "renamed" => renamed,
+        );
         Ok(())
     }
 
@@ -375,6 +425,10 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn duplicate_row(res: &Result<i64, rusqlite::Error>) -> bool {
+    matches!(res.as_ref().err().and_then(|e| e.sqlite_error_code()), Some(e) if e == ErrorCode::ConstraintViolation)
 }
 
 fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {

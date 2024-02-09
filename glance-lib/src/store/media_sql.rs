@@ -76,6 +76,22 @@ impl MediaSql {
         })
     }
 
+    pub fn rename(
+        conn: &Connection,
+        old_filepath: &PathBufSql,
+        new_filepath: &PathBufSql,
+    ) -> Result<usize, Error> {
+        let mut stmt = conn.prepare(formatcp!(
+            "UPDATE media
+            SET filepath = :new_filepath
+            WHERE filepath = :old_filepath"
+        ))?;
+        stmt.execute(named_params! {
+            ":new_filepath": new_filepath,
+            ":old_filepath": old_filepath,
+        })
+    }
+
     pub fn count(conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare("SELECT count(*) from media")?;
         stmt.query_row([], |row| row.get(0))
@@ -93,8 +109,14 @@ impl MediaSql {
         iter.collect()
     }
 
-    #[allow(dead_code)]
-    pub fn exists(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
+    pub fn exists_by_filepath(conn: &Connection, filepath: &PathBufSql) -> Result<bool, Error> {
+        let mut stmt = conn.prepare("SELECT 1 FROM media WHERE filepath = :filepath")?;
+        stmt.exists(named_params! {
+            ":filepath": filepath,
+        })
+    }
+
+    pub fn exists_by_hash(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {
             ":hash": hash,
