@@ -289,13 +289,10 @@ impl eframe::App for GlanceUi {
 
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("label")
-                            .selected_text(format!(
-                                "{}",
-                                match &self.label_to_filter {
-                                    Some(label) => label,
-                                    None => "all",
-                                }
-                            ))
+                            .selected_text(match &self.label_to_filter {
+                                Some(label) => label,
+                                None => "all",
+                            })
                             .show_ui(ui, |ui| {
                                 if ui
                                     .selectable_value(&mut self.label_to_filter, None, "all")
@@ -338,13 +335,10 @@ impl eframe::App for GlanceUi {
 
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("device")
-                            .selected_text(format!(
-                                "{}",
-                                match &self.device_to_filter {
-                                    Some(device) => device,
-                                    None => "all",
-                                }
-                            ))
+                            .selected_text(match &self.device_to_filter {
+                                Some(device) => device,
+                                None => "all",
+                            })
                             .show_ui(ui, |ui| {
                                 if ui
                                     .selectable_value(&mut self.device_to_filter, None, "all")
@@ -354,10 +348,8 @@ impl eframe::App for GlanceUi {
                                 }
                                 let mut devices = Vec::new();
                                 if let Some(stats) = &self.index_stats {
-                                    for (maybe_device, _) in &stats.count_by_device {
-                                        if let Some(device) = maybe_device {
-                                            devices.push(device.clone());
-                                        }
+                                    for device in stats.count_by_device.keys().flatten() {
+                                        devices.push(device.clone());
                                     }
                                 }
                                 for device in devices {
@@ -377,13 +369,10 @@ impl eframe::App for GlanceUi {
 
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("format")
-                            .selected_text(format!(
-                                "{}",
-                                match &self.format_to_filter {
-                                    Some(device) => device,
-                                    None => "all",
-                                }
-                            ))
+                            .selected_text(match &self.format_to_filter {
+                                Some(device) => device,
+                                None => "all",
+                            })
                             .show_ui(ui, |ui| {
                                 if ui
                                     .selectable_value(&mut self.format_to_filter, None, "all")
@@ -393,10 +382,8 @@ impl eframe::App for GlanceUi {
                                 }
                                 let mut formats = Vec::new();
                                 if let Some(stats) = &self.index_stats {
-                                    for (maybe_format, _) in &stats.count_by_format {
-                                        if let Some(format) = maybe_format {
-                                            formats.push(format.clone());
-                                        }
+                                    for format in stats.count_by_format.keys().flatten() {
+                                        formats.push(format.clone());
                                     }
                                 }
                                 for format in formats {
@@ -433,7 +420,7 @@ impl eframe::App for GlanceUi {
                     }
                     ui.label(format!("Size: {}", media.size.0));
                     if let Some(hash) = &media.hash {
-                        ui.label(format!("Hash: {}", hash.to_string()));
+                        ui.label(format!("Hash: {}", hash));
                     }
                 });
 
