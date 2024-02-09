@@ -66,7 +66,10 @@ fn add_label_test() -> Result<()> {
         .get(0)
         .ok_or_else(|| anyhow!("should have first element"))?;
     index.add_label(first.filepath.clone(), "test".to_string())?;
-    assert_debug_snapshot!(index.get_labels(first.filepath.clone()));
+    let mut expected = Vec::new();
+    expected.push("all");
+    expected.push("test");
+    assert_eq!(index.get_labels(first.filepath.clone())?, expected);
     Ok(())
 }
 
