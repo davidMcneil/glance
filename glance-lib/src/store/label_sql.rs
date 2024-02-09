@@ -35,6 +35,14 @@ impl LabelSql {
                 );",
             [],
         )?;
+        transaction.execute(
+            "CREATE INDEX IF NOT EXISTS filepath_index ON label (filepath);",
+            [],
+        )?;
+        transaction.execute(
+            "CREATE INDEX IF NOT EXISTS label_index ON label (label);",
+            [],
+        )?;
         transaction.commit()?;
         Ok(())
     }
