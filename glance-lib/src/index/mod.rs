@@ -143,12 +143,25 @@ impl Index {
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
+            if entry
+                .path()
+                .display()
+                .to_string()
+                .contains("glance-exports")
+            {
+                continue;
+            }
 
             if entry.file_type().is_dir() {
                 dirs += 1;
             }
 
             if entry.file_type().is_file() {
+                let filename = entry.file_name();
+                if filename == "glance.db" {
+                    continue;
+                }
+
                 files += 1;
                 let logger = self
                     .logger
