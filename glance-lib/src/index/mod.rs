@@ -1,3 +1,9 @@
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::symlink;
+#[cfg(target_os = "macos")]
+use std::os::unix::fs::symlink;
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
 use std::{collections::HashMap, fs, path::Path};
 
 use chrono::{DateTime, Utc};
@@ -16,8 +22,12 @@ use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::index::media::{Device, Media};
+use crate::store::label_sql::{LabelFilter, LabelSearch, LabelSql};
 use crate::store::media_sql::{MediaDuplicates, MediaFilter, MediaSearch, MediaSql};
 
+use self::label::Label;
+
+mod label;
 pub mod media;
 #[cfg(test)]
 mod tests;
@@ -42,12 +52,12 @@ pub struct Index {
 #[serde_as]
 #[derive(Debug, Serialize)]
 pub struct Stats {
-    count: i64,
+    pub count: i64,
     #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
-    count_by_format: HashMap<Option<String>, i64>,
+    pub count_by_format: HashMap<Option<String>, i64>,
     #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
-    count_by_device: HashMap<Option<String>, i64>,
-    duplicates: usize,
+    pub count_by_device: HashMap<Option<String>, i64>,
+    pub duplicates: usize,
 }
 
 #[derive(Debug)]
@@ -104,6 +114,7 @@ impl Index {
 
     fn new_impl(mut connection: Connection) -> Result<Self, Error> {
         MediaSql::create_table(&mut connection)?;
+        LabelSql::create_table(&mut connection)?;
         Ok(Self {
             connection,
             logger: NullLoggerBuilder.build()?,
@@ -262,6 +273,66 @@ impl Index {
         );
         Ok(())
     }
+
+    pub fn add_label<P: AsRef<Path>>(&self, path: P, label: String) -> Result<(), Error> {
+        let label = Label {
+            filepath: path.as_ref().to_path_buf(),
+            label,
+        };
+        LabelSql::from(label).insert(&self.connection)?;
+        Ok(())
+    }
+
+    pub fn delete_label<P: AsRef<Path>>(&self, path: P, label: String) -> Result<(), Error> {
+        let label = Label {
+            filepath: path.as_ref().to_path_buf(),
+            label,
+        };
+        LabelSql::from(label).delete(&self.connection)?;
+        Ok(())
+    }
+
+    pub fn get_labels<P: AsRef<Path>>(&self, path: P) -> Result<Vec<String>, Error> {
+        LabelSearch::new(
+            &self.connection,
+            LabelFilter {
+                filepath: Some(path.as_ref().to_path_buf().into()),
+            },
+        )?
+        .iter()?
+        .map(from_label_sql_result)
+        .map(|label| label.map(|l| l.label))
+        .collect()
+    }
+
+    pub fn get_all_labels(&self) -> Result<Vec<String>, Error> {
+        LabelSql::get_all_labels(&self.connection).map_err(|e| e.into())
+    }
+
+    pub fn export_images_with_label(
+        &self,
+        path_to_index: String,
+        label: String,
+    ) -> Result<(), Error> {
+        let labeled_media = self.get_media_with_filter(MediaFilter {
+            label: Some(label.clone()),
+            ..Default::default()
+        })?;
+        let label_folder = format!("{path_to_index}/glance-exports/{label}");
+        fs::create_dir_all(label_folder.clone())?;
+        for media in labeled_media {
+            if let Some(filename) = media.filepath.file_name() {
+                if let Some(filename) = filename.to_str() {
+                    symlink(&media.filepath, format!("{label_folder}/{filename}"))?;
+                }
+            }
+        }
+        info!(self.logger, "exported all images with label";
+            "label" => label,
+            "label_folder" => label_folder,
+        );
+        Ok(())
+    }
 }
 
 fn file_to_media_row(
@@ -289,7 +360,7 @@ fn file_to_media_row(
     let mut row = Media {
         filepath: path.clone(),
         size: metadata.len().into(),
-        format,
+        format: format.name().to_string(),
         created,
         location: None,
         device: None,
@@ -362,6 +433,10 @@ fn duplicate_row(res: &Result<i64, rusqlite::Error>) -> bool {
 
 fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {
     media_sql.map(|m| m.into()).map_err(|e| e.into())
+}
+
+fn from_label_sql_result(label_sql: Result<LabelSql, rusqlite::Error>) -> Result<Label, Error> {
+    label_sql.map(|l| l.into()).map_err(|e| e.into())
 }
 
 fn exif_field_to_string(field: &exif::Field) -> String {

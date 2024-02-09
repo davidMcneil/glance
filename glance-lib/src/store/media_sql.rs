@@ -7,6 +7,7 @@ use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
 const COLUMNS: &str = "filepath, size, format, created, location, device, hash";
+const COLUMNS_WITH_PREFIX: &str = "media.filepath, size, format, created, location, device, hash";
 
 /// Low level type for interacting with media rows
 #[derive(Debug)]
@@ -21,10 +22,13 @@ pub(crate) struct MediaSql {
     pub hash: Option<HashSql>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct MediaFilter {
     pub created_start: Option<DateTime<Utc>>,
     pub created_end: Option<DateTime<Utc>>,
+    pub label: Option<String>,
+    pub device: Option<String>,
+    pub format: Option<String>,
 }
 
 pub(crate) struct MediaSearch<'conn> {
@@ -41,14 +45,13 @@ impl MediaSql {
         let transaction = conn.transaction()?;
         transaction.execute(
             "CREATE TABLE IF NOT EXISTS media (
-                    filepath TEXT NOT NULL,
+                    filepath TEXT NOT NULL PRIMARY KEY,
                     size INTEGER NOT NULL,
                     format TEXT NOT NULL,
                     created TEXT,
                     location TEXT,
                     device TEXT,
-                    hash BLOB,
-                    UNIQUE (filepath)
+                    hash BLOB
                 );",
             [],
         )?;
@@ -113,6 +116,7 @@ impl MediaSql {
         })
     }
 
+    #[allow(dead_code)]
     pub fn exists_by_hash(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {
@@ -123,28 +127,32 @@ impl MediaSql {
 
 impl<'conn> MediaSearch<'conn> {
     pub fn new(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
-        let statement = match (&filter.created_start, &filter.created_end) {
-            (Some(_), Some(_)) => conn.prepare(formatcp!(
+        let mut sql = match filter.label {
+            Some(_) => formatcp!(
+                "SELECT {COLUMNS_WITH_PREFIX} FROM label \
+                    JOIN media ON media.filepath = label.filepath \
+                    WHERE label = :label",
+            ),
+            None => formatcp!(
                 "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                        AND created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (Some(_), None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created >= :created_start \
-                    ORDER BY created",
-            ))?,
-            (None, Some(_)) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    WHERE created <= :created_end \
-                    ORDER BY created",
-            ))?,
-            (None, None) => conn.prepare(formatcp!(
-                "SELECT {COLUMNS} FROM media \
-                    ORDER BY created"
-            ))?,
-        };
+                    WHERE true",
+            ),
+        }
+        .to_string();
+        if filter.device.is_some() {
+            sql.push_str("\nAND device = :device");
+        }
+        if filter.format.is_some() {
+            sql.push_str("\nAND format = :format");
+        }
+        if filter.created_start.is_some() {
+            sql.push_str("\nAND created >= :created_start");
+        }
+        if filter.created_end.is_some() {
+            sql.push_str("\nAND created <= :created_end");
+        }
+        sql.push_str("\nORDER BY created");
+        let statement = conn.prepare(&sql)?;
         Ok(MediaSearch { statement, filter })
     }
 
@@ -173,6 +181,15 @@ impl MediaFilter {
         }
         if let Some(created_end) = &self.created_end {
             result.push((":created_end", created_end as &dyn ToSql))
+        }
+        if let Some(label) = &self.label {
+            result.push((":label", label as &dyn ToSql))
+        }
+        if let Some(device) = &self.device {
+            result.push((":device", device as &dyn ToSql))
+        }
+        if let Some(format) = &self.format {
+            result.push((":format", format as &dyn ToSql))
         }
         result
     }
