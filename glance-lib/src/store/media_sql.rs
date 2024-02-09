@@ -116,6 +116,7 @@ impl MediaSql {
         })
     }
 
+    #[allow(dead_code)]
     pub fn exists_by_hash(conn: &Connection, hash: HashSql) -> Result<bool, Error> {
         let mut stmt = conn.prepare("SELECT 1 FROM media WHERE hash = :hash")?;
         stmt.exists(named_params! {
@@ -126,7 +127,7 @@ impl MediaSql {
 
 impl<'conn> MediaSearch<'conn> {
     pub fn new(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
-        let base_select = match filter.label {
+        let mut sql = match filter.label {
             Some(_) => formatcp!(
                 "SELECT {COLUMNS_WITH_PREFIX} FROM label \
                     JOIN media ON media.filepath = label.filepath \
@@ -136,32 +137,21 @@ impl<'conn> MediaSearch<'conn> {
                 "SELECT {COLUMNS} FROM media \
                     WHERE true",
             ),
-        };
-        let device_where = match filter.device {
-            Some(_) => "AND device = :device",
-            None => "",
-        };
-        let format_where = match filter.format {
-            Some(_) => "AND format = :format",
-            None => "",
-        };
-        let wheres_and_order_by = match (&filter.created_start, &filter.created_end) {
-            (Some(_), Some(_)) => formatcp!(
-                "AND created >= :created_start \
-                    AND created <= :created_end \
-                    ORDER BY created",
-            ),
-            (Some(_), None) => formatcp!(
-                "AND created >= :created_start \
-                    ORDER BY created",
-            ),
-            (None, Some(_)) => formatcp!(
-                "AND created <= :created_end \
-                    ORDER BY created",
-            ),
-            (None, None) => formatcp!("ORDER BY created"),
-        };
-        let sql = format!("{base_select}\n{device_where}\n{format_where}\n{wheres_and_order_by}");
+        }
+        .to_string();
+        if filter.device.is_some() {
+            sql.push_str("\nAND device = :device");
+        }
+        if filter.format.is_some() {
+            sql.push_str("\nAND format = :format");
+        }
+        if filter.created_start.is_some() {
+            sql.push_str("\nAND created >= :created_start");
+        }
+        if filter.created_end.is_some() {
+            sql.push_str("\nAND created <= :created_end");
+        }
+        sql.push_str("\nORDER BY created");
         let statement = conn.prepare(&sql)?;
         Ok(MediaSearch { statement, filter })
     }
