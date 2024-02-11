@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 use chrono::{Local, NaiveDate, Utc};
 use eframe::egui;
-use egui::{Vec2, Widget};
+use egui::{Color32, Vec2, Widget};
 use glance_lib::index::media::{stats_from_media, Media, MediaFilter};
 use glance_lib::index::{AddDirectoryConfig, Index, Stats};
 use slog::{warn, Logger};
@@ -426,33 +426,46 @@ impl eframe::App for GlanceUi {
 
                 if let Some(index) = &mut self.index {
                     egui::Window::new("Labels").show(ctx, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.text_edit_singleline(&mut self.label_to_add);
-                            if ui.button("Add Label").clicked() {
-                                if let Err(e) = index.add_label(&path, self.label_to_add.clone()) {
-                                    warn!(self.logger, "failed to add label";
-                                        "error" => e.to_string(),
-                                    );
-                                }
-                                if let Ok(all_labels) = index.get_all_labels() {
-                                    self.all_labels = all_labels;
-                                }
-                            }
-                            if ui.button("Remove Label").clicked() {
-                                if let Err(e) = index.delete_label(&path, self.label_to_add.clone())
-                                {
-                                    warn!(self.logger, "failed to delete label";
-                                        "error" => e.to_string(),
-                                    );
-                                }
-                                if let Ok(all_labels) = index.get_all_labels() {
-                                    self.all_labels = all_labels;
-                                }
-                            }
-                        });
-
                         if let Ok(labels) = index.get_labels(&path) {
-                            ui.label(format!("Labels: {}", labels.join(",")));
+                            ui.text_edit_singleline(&mut self.label_to_add);
+                            let image_has_label = labels.contains(&self.label_to_add);
+                            if ui
+                                .add(
+                                    egui::Button::new(if image_has_label {
+                                        "Delete Label"
+                                    } else {
+                                        "Add Label"
+                                    })
+                                    .fill(
+                                        if image_has_label {
+                                            Color32::DARK_GREEN
+                                        } else {
+                                            Color32::DARK_RED
+                                        },
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                let toggle_result = if image_has_label {
+                                    index.delete_label(&path, self.label_to_add.clone())
+                                } else {
+                                    index.add_label(&path, self.label_to_add.clone())
+                                };
+                                if let Err(e) = toggle_result {
+                                    warn!(self.logger, "failed to add/remove label";
+                                        "error" => e.to_string(),
+                                    );
+                                }
+                                if let Ok(all_labels) = index.get_all_labels() {
+                                    self.all_labels = all_labels;
+                                }
+                            }
+                            ui.horizontal(|ui| {
+                                ui.label("Labels: ");
+                                for label in labels {
+                                    ui.label(label);
+                                }
+                            });
                         }
                     });
                 }
