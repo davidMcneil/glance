@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use chrono::{DateTime, Utc};
 use const_format::formatcp;
@@ -6,6 +6,7 @@ use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
+const IMPORT_DB: &str = "import";
 const COLUMNS: &str = "filepath, size, format, created, location, device, hash";
 const COLUMNS_WITH_PREFIX: &str = "media.filepath, size, format, created, location, device, hash";
 
@@ -40,6 +41,10 @@ pub(crate) struct MediaDuplicates<'conn> {
     statement: Statement<'conn>,
 }
 
+pub(crate) struct MediaNewFromImport<'conn> {
+    statement: Statement<'conn>,
+}
+
 impl MediaSql {
     pub fn create_table(conn: &mut Connection) -> Result<(), Error> {
         let transaction = conn.transaction()?;
@@ -60,6 +65,14 @@ impl MediaSql {
         Ok(())
     }
 
+    pub fn attach_for_import(import_path: &Path, conn: &mut Connection) -> Result<(), Error> {
+        conn.execute(
+            &format!("ATTACH DATABASE '{}' AS {IMPORT_DB}", import_path.display()),
+            [],
+        )?;
+        Ok(())
+    }
+
     pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "INSERT INTO media ({COLUMNS}) \
@@ -73,6 +86,13 @@ impl MediaSql {
             ":location": &self.location,
             ":device": &self.device,
             ":hash": self.hash,
+        })
+    }
+
+    pub fn delete(&self, conn: &Connection) -> Result<usize, Error> {
+        let mut stmt = conn.prepare("DELETE FROM media WHERE filepath = :filepath")?;
+        stmt.execute(named_params! {
+            ":filepath": self.filepath,
         })
     }
 
@@ -196,7 +216,7 @@ impl MediaFilter {
 }
 
 impl<'conn> MediaDuplicates<'conn> {
-    pub fn new(conn: &'conn Connection) -> Result<MediaDuplicates, Error> {
+    pub fn new(conn: &'conn Connection) -> Result<Self, Error> {
         let statement = conn.prepare(
             "SELECT m.* FROM media m
                     JOIN (
@@ -205,6 +225,25 @@ impl<'conn> MediaDuplicates<'conn> {
                         GROUP BY hash
                         HAVING COUNT(*) > 1
                     ) AS duplicates ON m.hash = duplicates.hash;",
+        )?;
+        Ok(Self { statement })
+    }
+
+    pub fn iter(&mut self) -> Result<impl Iterator<Item = Result<MediaSql, Error>> + '_, Error> {
+        let iter = self
+            .statement
+            .query_map([], |row| MediaSql::try_from(row))?;
+        Ok(iter)
+    }
+}
+
+impl<'conn> MediaNewFromImport<'conn> {
+    pub fn new(conn: &'conn Connection) -> Result<Self, Error> {
+        let statement = conn.prepare(
+            "SELECT import.*
+                 FROM import.media AS import
+                 LEFT JOIN media ON import.hash = media.hash
+                 WHERE media.hash IS NULL",
         )?;
         Ok(Self { statement })
     }

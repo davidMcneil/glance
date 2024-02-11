@@ -23,7 +23,9 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::index::media::{Device, Media};
 use crate::store::label_sql::{LabelFilter, LabelSearch, LabelSql};
-use crate::store::media_sql::{MediaDuplicates, MediaFilter, MediaSearch, MediaSql};
+use crate::store::media_sql::{
+    MediaDuplicates, MediaFilter, MediaNewFromImport, MediaSearch, MediaSql,
+};
 
 use self::label::Label;
 
@@ -137,6 +139,7 @@ impl Index {
         info!(logger, "adding directory");
         let mut files = 0;
         let mut dirs = 0;
+        let mut added = 0;
         let mut duplicates = 0;
         let mut filtered = 0;
         let mut failed = 0;
@@ -184,6 +187,7 @@ impl Index {
                             continue;
                         }
                         res?;
+                        added += 1;
                     }
                     Ok(None) => {
                         trace!(logger, "filtered file");
@@ -202,9 +206,35 @@ impl Index {
         info!(logger, "added directory";
             "files" => files,
             "dirs" => dirs,
+            "added" => added,
             "duplicates" => duplicates,
             "filtered" => filtered,
             "failed" => failed,
+        );
+        Ok(())
+    }
+
+    pub fn remove_not_in_directory<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
+        let logger = self
+            .logger
+            .new(o!("path" => path.as_ref().display().to_string()));
+        info!(logger, "removing files not in directory");
+        let mut removed = 0;
+        let transaction = self.connection.transaction()?;
+        for media in MediaSearch::new_with_filter_defaults(&transaction)?
+            .iter()?
+            .map(from_media_sql_result)
+        {
+            let media = media?;
+            if !media.filepath.exists() {
+                trace!(self.logger, "removing from index"; "path" => media.filepath.display());
+                MediaSql::from(media).delete(&transaction)?;
+                removed += 1;
+            }
+        }
+        transaction.commit()?;
+        info!(logger, "removed files not in directory";
+            "removed" => removed,
         );
         Ok(())
     }
@@ -237,6 +267,40 @@ impl Index {
             .iter()?
             .map(from_media_sql_result)
             .collect()
+    }
+
+    pub fn import(
+        &mut self,
+        import_index_path: &Path,
+        media_path: &Path,
+        dry_run: bool,
+    ) -> Result<(), Error> {
+        MediaSql::attach_for_import(import_index_path, &mut self.connection)?;
+        info!(self.logger, "importing media files"; "path" => import_index_path.display());
+        let mut imported = 0;
+        let transaction = self.connection.transaction()?;
+        for media in MediaNewFromImport::new(&transaction)?
+            .iter()?
+            .map(from_media_sql_result)
+        {
+            let mut media = media?;
+            trace!(self.logger, "importing media"; "path" => media.filepath.display());
+
+            let Some(destination_file_name) = media.filepath.file_name() else {
+                continue;
+            };
+            let destination_path: std::path::PathBuf = media_path.join(destination_file_name);
+            if !dry_run {
+                fs::copy(&media.filepath, &destination_path)?;
+                media.filepath = destination_path;
+                MediaSql::from(media).insert(&transaction)?;
+            }
+
+            imported += 1;
+        }
+        transaction.commit()?;
+        info!(self.logger, "imported media files"; "imported" => imported);
+        Ok(())
     }
 
     pub fn standardize_naming<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {

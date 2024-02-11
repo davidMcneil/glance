@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use glance_lib::index::{AddDirectoryConfig, Index};
 use glance_util::canonicalized_path_buf::CanonicalizedPathBuf;
@@ -65,12 +65,18 @@ struct IndexMedia {
 
 #[derive(Debug, Parser)]
 struct ImportMedia {
-    /// Path to directory with media files to import
-    #[arg(long)]
-    import_media_path: CanonicalizedPathBuf,
     /// Path to directory to import media files into
     #[arg(long)]
     media_path: CanonicalizedPathBuf,
+    /// Path to save the import media db index
+    #[arg(long)]
+    import_index_path: PathBuf,
+    /// Path to directory with media files to import
+    #[arg(long)]
+    import_media_path: CanonicalizedPathBuf,
+    /// Dry run; dont actually move any files
+    #[arg(long)]
+    dry_run: bool,
 }
 
 /// Doc comment
@@ -97,30 +103,53 @@ fn main() -> Result<()> {
         .source_location(SourceLocation::None)
         .build()?;
 
-    let mut index = Index::new(args.index_path)?.with_logger(logger);
+    let mut index = Index::new(args.index_path)?.with_logger(logger.clone());
+
+    let config = AddDirectoryConfig {
+        hash: args.calculate_hash,
+        filter_by_media: args.filter_by_media_type,
+        use_modified_if_created_not_set: args.use_modified_if_created_not_set,
+        calculate_nearest_city: args.calculate_nearest_city,
+    };
 
     match args.command {
         Command::IndexMedia(sub_args) => {
             let media_path = PathBuf::from(sub_args.media_path);
-            let config = AddDirectoryConfig {
-                hash: args.calculate_hash,
-                filter_by_media: args.filter_by_media_type,
-                use_modified_if_created_not_set: args.use_modified_if_created_not_set,
-                calculate_nearest_city: args.calculate_nearest_city,
-            };
             index.add_directory(&media_path, &config)?;
-            // TODO: should also validate every entry in index is in media_path
-
-            if args.naming.is_time() {
-                index.standardize_naming(&media_path)?;
-            }
+            index.remove_not_in_directory(&media_path)?;
+            standardize_naming(&mut index, args.naming, &media_path)?;
         }
-        Command::ImportMedia(_) => todo!(),
+        Command::ImportMedia(sub_args) => {
+            if !args.calculate_hash {
+                // TODO: check that indexes already have hashes
+                return Err(anyhow!("Cannot import media without calculating the hash"));
+            }
+
+            let import_media_path = PathBuf::from(sub_args.import_media_path);
+            let import_index_path = &sub_args.import_index_path;
+            let mut import_index = Index::new(import_index_path)?.with_logger(logger);
+            import_index.add_directory(&import_media_path, &config)?;
+            import_index.remove_not_in_directory(&import_media_path)?;
+
+            let media_path = PathBuf::from(sub_args.media_path);
+            index.add_directory(&media_path, &config)?;
+            index.remove_not_in_directory(&media_path)?;
+            index.import(import_index_path, &media_path, sub_args.dry_run)?;
+
+            standardize_naming(&mut index, args.naming, &media_path)?;
+        }
         Command::Stats => {
             let stats = index.stats()?;
             println!("{}", serde_json::to_string_pretty(&stats)?);
         }
     }
 
+    Ok(())
+}
+
+fn standardize_naming(index: &mut Index, naming: Naming, media_path: &Path) -> Result<()> {
+    if naming.is_time() {
+        index.standardize_naming(&media_path)?;
+    }
     Ok(())
 }
