@@ -137,12 +137,12 @@ impl Index {
             .logger
             .new(o!("path" => path.as_ref().display().to_string()));
         info!(logger, "adding directory");
-        let mut files = 0;
-        let mut dirs = 0;
-        let mut added = 0;
-        let mut duplicates = 0;
-        let mut filtered = 0;
-        let mut failed = 0;
+        let mut files = 0u64;
+        let mut dirs = 0u64;
+        let mut added = 0u64;
+        let mut duplicates = 0u64;
+        let mut filtered = 0u64;
+        let mut failed = 0u64;
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
             let entry = entry?;
@@ -219,7 +219,7 @@ impl Index {
             .logger
             .new(o!("path" => path.as_ref().display().to_string()));
         info!(logger, "removing files not in directory");
-        let mut removed = 0;
+        let mut removed = 0u64;
         let transaction = self.connection.transaction()?;
         for media in MediaSearch::new_with_filter_defaults(&transaction)?
             .iter()?
@@ -277,7 +277,7 @@ impl Index {
     ) -> Result<(), Error> {
         MediaSql::attach_for_import(import_index_path, &mut self.connection)?;
         info!(self.logger, "importing media files"; "path" => import_index_path.display());
-        let mut imported = 0;
+        let mut imported = 0u64;
         let transaction = self.connection.transaction()?;
         for media in MediaNewFromImport::new(&transaction)?
             .iter()?
@@ -309,8 +309,8 @@ impl Index {
             .new(o!("path" => path.as_ref().display().to_string()));
         info!(logger, "standardizing naming");
         let path = path.as_ref();
-        let mut total = 0;
-        let mut renamed = 0;
+        let mut total = 0u64;
+        let mut renamed = 0u64;
         for media in MediaSearch::new_with_filter_defaults(&self.connection)?
             .iter()?
             .map(from_media_sql_result)
