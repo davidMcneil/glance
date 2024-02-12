@@ -13,7 +13,7 @@ use exif::{Exif, In, Rational, Tag, Value};
 use file_format::{FileFormat, Kind};
 use glance_util::hash_map_with_unknown::HashMapWithUnknown;
 use reverse_geocoder::ReverseGeocoder;
-use rusqlite::{Connection, ErrorCode};
+use rusqlite::Connection;
 use serde::Serialize;
 use serde_with::{serde_as, FromInto};
 use slog::{error, info, o, trace, Logger};
@@ -180,13 +180,12 @@ impl Index {
                 match file_to_media_row(&entry, config) {
                     Ok(Some(new_row)) => {
                         trace!(logger, "adding file");
-                        let res = MediaSql::from(new_row).insert(&transaction);
-                        if duplicate_row(&res) {
+                        let inserted = MediaSql::from(new_row).insert(&transaction)?;
+                        if !inserted {
                             trace!(logger, "duplicate file");
                             duplicates += 1;
                             continue;
                         }
-                        res?;
                         added += 1;
                     }
                     Ok(None) => {
@@ -278,6 +277,7 @@ impl Index {
         MediaSql::attach_for_import(import_index_path, &mut self.connection)?;
         info!(self.logger, "importing media files"; "path" => import_index_path.display());
         let mut imported = 0u64;
+        let mut duplicates = 0u64;
         let transaction = self.connection.transaction()?;
         for media in MediaNewFromImport::new(&transaction)?
             .iter()?
@@ -293,13 +293,20 @@ impl Index {
             if !dry_run {
                 fs::copy(&media.filepath, &destination_path)?;
                 media.filepath = destination_path;
-                MediaSql::from(media).insert(&transaction)?;
+                let inserted = MediaSql::from(media).insert(&transaction)?;
+                if !inserted {
+                    duplicates += 1;
+                    continue;
+                }
             }
 
             imported += 1;
         }
         transaction.commit()?;
-        info!(self.logger, "imported media files"; "imported" => imported);
+        info!(self.logger, "imported media files";
+            "imported" => imported,
+            "duplicates" => duplicates,
+        );
         Ok(())
     }
 
@@ -329,6 +336,13 @@ impl Index {
                     continue;
                 }
 
+                if destination_path.exists() {
+                    error!(self.logger, "standardized destination name";
+                        "old_path" => media.filepath.display(),
+                        "new_path" => destination_path.display(),
+                    );
+                    continue;
+                }
                 fs::rename(&media.filepath, &destination_path)?;
                 MediaSql::rename(
                     &self.connection,
@@ -502,10 +516,6 @@ fn get_location_from_exif(exif: &Exif) -> Option<String> {
         }
         _ => None,
     }
-}
-
-fn duplicate_row(res: &Result<i64, rusqlite::Error>) -> bool {
-    matches!(res.as_ref().err().and_then(|e| e.sqlite_error_code()), Some(e) if e == ErrorCode::ConstraintViolation)
 }
 
 fn from_media_sql_result(media_sql: Result<MediaSql, rusqlite::Error>) -> Result<Media, Error> {

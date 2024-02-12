@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use chrono::{DateTime, Utc};
 use const_format::formatcp;
-use rusqlite::{named_params, Connection, Error, Row, Statement, ToSql};
+use rusqlite::{named_params, Connection, Error, ErrorCode, Row, Statement, ToSql};
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
@@ -73,12 +73,12 @@ impl MediaSql {
         Ok(())
     }
 
-    pub fn insert(&self, conn: &Connection) -> Result<i64, Error> {
+    pub fn insert(&self, conn: &Connection) -> Result<bool, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "INSERT INTO media ({COLUMNS}) \
             VALUES (:filepath, :size, :format, :created, :location, :device, :hash)"
         ))?;
-        stmt.insert(named_params! {
+        let res = stmt.insert(named_params! {
             ":filepath": self.filepath,
             ":size": self.size,
             ":format": self.format,
@@ -86,6 +86,12 @@ impl MediaSql {
             ":location": &self.location,
             ":device": &self.device,
             ":hash": self.hash,
+        });
+        Ok(if duplicate_row(&res) {
+            false
+        } else {
+            res?;
+            true
         })
     }
 
@@ -270,4 +276,8 @@ impl TryFrom<&Row<'_>> for MediaSql {
             hash: row.get(6)?,
         })
     }
+}
+
+fn duplicate_row(res: &Result<i64, rusqlite::Error>) -> bool {
+    matches!(res.as_ref().err().and_then(|e| e.sqlite_error_code()), Some(e) if e == ErrorCode::ConstraintViolation)
 }
