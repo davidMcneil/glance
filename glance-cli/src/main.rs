@@ -29,6 +29,9 @@ struct Args {
     /// Calculate the nearest city from exif data
     #[arg(long)]
     calculate_nearest_city: bool,
+    /// Use exiftool cli
+    #[arg(long)]
+    use_exiftool: bool,
     /// How to name files
     #[arg(long, value_enum)]
     naming: Naming,
@@ -110,6 +113,7 @@ fn main() -> Result<()> {
         filter_by_media: args.filter_by_media_type,
         use_modified_if_created_not_set: args.use_modified_if_created_not_set,
         calculate_nearest_city: args.calculate_nearest_city,
+        use_exiftool: args.use_exiftool,
     };
 
     match args.command {
@@ -149,7 +153,7 @@ fn main() -> Result<()> {
 
 fn standardize_naming(index: &mut Index, naming: Naming, media_path: &Path) -> Result<()> {
     if naming.is_time() {
-        index.standardize_naming(&media_path)?;
+        index.standardize_naming(media_path)?;
     }
     Ok(())
 }

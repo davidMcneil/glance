@@ -9,6 +9,7 @@ chrono = { version = "0.4", features = ["std"] }
 const_format = "0.2"
 dateparser = "0.2"
 derive_more = { version = "1.0.0-beta.6", features = ["full"] }
+exiftool = {path = "../exiftool"}
 file-format = "0.23"
 glance-util = {path = "../glance-util"}
 kamadak-exif = "0.5"

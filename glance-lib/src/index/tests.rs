@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use file_format::FileFormat;
 use glance_util::function;
 use insta::assert_debug_snapshot;
+use slog::o;
 use walkdir::WalkDir;
 
 use crate::{
@@ -11,6 +12,7 @@ use crate::{
 
 #[test]
 fn file_to_media_row_test() -> Result<()> {
+    let logger = slog::Logger::root(slog::Discard, o!());
     for entry in WalkDir::new("../test-media/exif-images/Canon_40D.jpg") {
         let entry = entry?;
         let config = AddDirectoryConfig {
@@ -18,9 +20,10 @@ fn file_to_media_row_test() -> Result<()> {
             filter_by_media: false,
             use_modified_if_created_not_set: false,
             calculate_nearest_city: false,
+            use_exiftool: false,
         };
-        let media_row =
-            file_to_media_row(&entry, &config)?.ok_or_else(|| anyhow!("should be some"))?;
+        let media_row = file_to_media_row(&entry, &config, &logger)?
+            .ok_or_else(|| anyhow!("should be some"))?;
         assert_eq!(media_row.filepath, entry.path());
         assert_eq!(media_row.size, 7958.into());
         assert_eq!(
@@ -44,6 +47,7 @@ fn add_directory_test() -> Result<()> {
         filter_by_media: false,
         use_modified_if_created_not_set: false,
         calculate_nearest_city: true,
+        use_exiftool: false,
     };
     index.add_directory("../test-media", &config)?;
     let mut data = index.get_media()?;

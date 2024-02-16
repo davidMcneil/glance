@@ -1,0 +1,15 @@
+[package]
+name = "exiftool"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dateparser = "0.2"
+chrono = { version = "0.4", features = ["std", "serde"] }
+derive_more = { version = "1.0.0-beta.6", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+slog = "2"
+thiserror = "1"

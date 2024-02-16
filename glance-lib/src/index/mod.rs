@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use dateparser::parse_with_timezone;
 use derive_more::Display;
 use exif::{Exif, In, Rational, Tag, Value};
+use exiftool::ExiftoolData;
 use file_format::{FileFormat, Kind};
 use glance_util::hash_map_with_unknown::HashMapWithUnknown;
 use reverse_geocoder::ReverseGeocoder;
@@ -36,6 +37,8 @@ mod tests;
 
 #[derive(Debug, Error, Display)]
 pub enum Error {
+    /// exiftool: {:0}
+    Exiftool(#[from] exiftool::Error),
     /// io: {:0}
     Io(#[from] std::io::Error),
     /// rusqlite: {:0}
@@ -72,6 +75,8 @@ pub struct AddDirectoryConfig {
     pub use_modified_if_created_not_set: bool,
     /// Calculate the nearest city based on the exif GPS data
     pub calculate_nearest_city: bool,
+    /// Try to use exiftool cli program
+    pub use_exiftool: bool,
 }
 
 impl Default for AddDirectoryConfig {
@@ -81,6 +86,7 @@ impl Default for AddDirectoryConfig {
             filter_by_media: true,
             use_modified_if_created_not_set: true,
             calculate_nearest_city: false,
+            use_exiftool: false,
         }
     }
 }
@@ -177,7 +183,7 @@ impl Index {
                     continue;
                 }
 
-                match file_to_media_row(&entry, config) {
+                match file_to_media_row(&entry, config, &logger) {
                     Ok(Some(new_row)) => {
                         trace!(logger, "adding file");
                         let inserted = MediaSql::from(new_row).insert(&transaction)?;
@@ -337,7 +343,7 @@ impl Index {
                 }
 
                 if destination_path.exists() {
-                    error!(self.logger, "standardized destination name";
+                    error!(self.logger, "standardized destination name already exists";
                         "old_path" => media.filepath.display(),
                         "new_path" => destination_path.display(),
                     );
@@ -429,6 +435,7 @@ impl Index {
 fn file_to_media_row(
     entry: &DirEntry,
     config: &AddDirectoryConfig,
+    logger: &Logger,
 ) -> Result<Option<Media>, Error> {
     let path = entry.path().to_path_buf();
     let format = FileFormat::from_file(&path)?;
@@ -462,20 +469,32 @@ fn file_to_media_row(
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader);
-    if let Ok(exif) = exif {
-        if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
-            let date_taken_string = format!("{}", date_taken.display_value());
-            if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
-                row.created = Some(date_taken);
+    match exif {
+        Ok(exif) => {
+            if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
+                let date_taken_string = format!("{}", date_taken.display_value());
+                if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
+                    row.created = Some(date_taken);
+                }
+            }
+            if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
+                let model_string = exif_field_to_string(model);
+                row.device = Some(Device::from(model_string));
+            }
+            if config.calculate_nearest_city {
+                row.location = get_location_from_exif(&exif);
             }
         }
-        if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
-            let model_string = exif_field_to_string(model);
-            row.device = Some(Device::from(model_string));
+        Err(e) => {
+            trace!(logger, "failed reading exif"; "error" => e.to_string());
+            if config.use_exiftool {
+                let exif = ExiftoolData::get(&path, logger)?;
+                row.created = exif.created;
+            }
         }
-        if config.calculate_nearest_city {
-            row.location = get_location_from_exif(&exif);
-        }
+    }
+    if row.created.is_none() {
+        error!(logger, "failed to get created");
     }
     Ok(Some(row))
 }
