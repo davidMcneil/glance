@@ -1347,6 +1347,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd0c93bb4b0c6d9b77f4435b0ae98c24d17f1c45b2ff844c6151a07256ca923b"
 
 [[package]]
+name = "displaydoc"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "487585f4d0c6655fe74905e2504d8ad6908e4db67f744eb140876906c2f3175d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.39",
+]
+
+[[package]]
 name = "divrem"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1700,7 +1711,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dateparser",
- "derive_more",
+ "displaydoc",
  "serde",
  "serde_json",
  "slog",
@@ -2167,6 +2178,7 @@ dependencies = [
  "const_format",
  "dateparser",
  "derive_more",
+ "displaydoc",
  "exiftool",
  "file-format",
  "glance-util",

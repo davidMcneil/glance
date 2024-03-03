@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use derive_more::Display;
+use displaydoc::Display;
 use serde::{Deserialize, Serialize};
 use slog::{warn, Logger};
 use std::{
@@ -11,7 +11,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug, Display)]
 pub enum Error {
-    /// exiftool returned failed status code: {}
+    /// exiftool returned failed status code: {0}
     ExiftoolCommandFailed(ExitStatus),
     /// io: {0}"
     Io(#[from] std::io::Error),

@@ -8,7 +8,7 @@ use std::{collections::HashMap, fs, path::Path};
 
 use chrono::{DateTime, Utc};
 use dateparser::parse_with_timezone;
-use derive_more::Display;
+use displaydoc::Display;
 use exif::{Exif, In, Rational, Tag, Value};
 use exiftool::ExiftoolData;
 use file_format::{FileFormat, Kind};
@@ -37,15 +37,15 @@ mod tests;
 
 #[derive(Debug, Error, Display)]
 pub enum Error {
-    /// exiftool: {:0}
+    /// exiftool: {0}
     Exiftool(#[from] exiftool::Error),
-    /// io: {:0}
+    /// io: {0}
     Io(#[from] std::io::Error),
-    /// rusqlite: {:0}
+    /// rusqlite: {0}
     Rusqlite(#[from] rusqlite::Error),
-    /// sloggers: {:0}
+    /// sloggers: {0}
     Sloggers(#[from] sloggers::Error),
-    /// walkdir: {:0}
+    /// walkdir: {0}
     Walkdir(#[from] walkdir::Error),
 }
 
