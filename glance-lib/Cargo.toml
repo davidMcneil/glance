@@ -8,18 +8,18 @@ blake3 = "1"
 chrono = { version = "0.4", features = ["std"] }
 const_format = "0.2"
 dateparser = "0.2"
-derive_more = { version = "1.0.0-beta.6", features = ["full"] }
+derive_more = { version = "2", features = ["full"] }
 displaydoc = "0.2"
 exiftool = { path = "../exiftool" }
-file-format = "0.23"
+file-format = "0.26"
 glance-util = { path = "../glance-util" }
-kamadak-exif = "0.5"
-rusqlite = { version = "0.30", features = ["bundled", "chrono", "backup"] }
+kamadak-exif = "0.6"
+rusqlite = { version = "0.33", features = ["bundled", "chrono", "backup"] }
 serde = { version = "1", features = ["derive"] }
 serde_with = "3"
 slog = "2"
 sloggers = "2"
-thiserror = "1"
+thiserror = "2"
 walkdir = "2"
 reverse_geocoder = "4"
 

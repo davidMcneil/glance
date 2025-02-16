@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use derive_more::{From, Into};
-
 use crate::store::label_sql::LabelSql;
 
 #[derive(Debug)]

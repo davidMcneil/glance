@@ -1,6 +1,7 @@
+use std::str::FromStr;
 use std::{io::Error, path::PathBuf};
 
-use derive_more::{From, FromStr, Into};
+use derive_more::{From, Into};
 
 #[derive(Clone, Debug, Into, From)]
 pub struct CanonicalizedPathBuf(PathBuf);
