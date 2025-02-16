@@ -471,7 +471,10 @@ fn file_to_media_row(
     let exif = exifreader.read_from_container(&mut bufreader);
     match exif {
         Ok(exif) => {
-            if let Some(date_taken) = exif.get_field(Tag::DateTime, In::PRIMARY) {
+            if let Some(date_taken) = exif
+                .get_field(Tag::DateTimeOriginal, In::PRIMARY)
+                .or_else(|| exif.get_field(Tag::DateTime, In::PRIMARY))
+            {
                 let date_taken_string = format!("{}", date_taken.display_value());
                 if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
                     row.created = Some(date_taken);
