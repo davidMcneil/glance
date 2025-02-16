@@ -151,7 +151,7 @@ impl MediaSql {
     }
 }
 
-impl<'conn> MediaSearch<'conn> {
+impl MediaSearch<'_> {
     pub fn new(conn: &Connection, filter: MediaFilter) -> Result<MediaSearch, Error> {
         let mut sql = match filter.label {
             Some(_) => formatcp!(

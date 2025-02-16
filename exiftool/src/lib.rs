@@ -43,7 +43,7 @@ impl ExiftoolData {
         if !exiftool_data_list.is_empty() {
             warn!(logger, "multiple exif data returned, ignoring all but first"; "path" => path.display());
         }
-        first.ok_or_else(|| Error::MissingExifData)
+        first.ok_or(Error::MissingExifData)
     }
 }
 

@@ -502,6 +502,7 @@ fn file_to_media_row(
     Ok(Some(row))
 }
 
+#[allow(clippy::get_first)]
 fn get_location_from_exif(exif: &Exif) -> Option<String> {
     fn to_decimal_degrees(degree_minute_second: &[Rational], bearing: &str) -> Option<f64> {
         let degrees = degree_minute_second.get(0)?.num as i32;

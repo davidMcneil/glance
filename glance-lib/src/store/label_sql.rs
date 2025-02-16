@@ -77,7 +77,7 @@ impl LabelSql {
     }
 }
 
-impl<'conn> LabelSearch<'conn> {
+impl LabelSearch<'_> {
     pub fn new(conn: &Connection, filter: LabelFilter) -> Result<LabelSearch, Error> {
         let statement = match &filter.filepath {
             Some(_) => conn.prepare(formatcp!(
