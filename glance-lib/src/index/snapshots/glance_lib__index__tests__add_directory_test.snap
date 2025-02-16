@@ -1,6 +1,7 @@
 ---
 source: glance-lib/src/index/tests.rs
 expression: data
+snapshot_kind: text
 ---
 [
     Media {
@@ -10,7 +11,7 @@ expression: data
         ),
         format: "Joint Photographic Experts Group",
         created: Some(
-            2008-07-31T10:38:11Z,
+            2008-05-30T15:56:01Z,
         ),
         location: None,
         device: Some(
@@ -31,7 +32,7 @@ expression: data
         ),
         format: "Joint Photographic Experts Group",
         created: Some(
-            2008-07-31T10:03:44Z,
+            2008-03-15T09:52:01Z,
         ),
         location: None,
         device: Some(
