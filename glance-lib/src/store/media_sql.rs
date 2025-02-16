@@ -17,6 +17,7 @@ pub(crate) struct MediaSql {
     pub size: u64,
     pub format: FileFormatSql,
     pub created: Option<DateTime<Utc>>,
+    // pub modified: Option<DateTime<Utc>>,
     pub location: Option<String>,
     pub device: Option<String>,
     // pub iso: (),

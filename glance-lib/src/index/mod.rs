@@ -72,6 +72,7 @@ pub struct AddDirectoryConfig {
     /// Filter contents to only include images and videos
     pub filter_by_media: bool,
     /// Use the modified time of the file if created is not set in exif data
+    // TODO: seems this uses file created time not modified
     pub use_modified_if_created_not_set: bool,
     /// Calculate the nearest city based on the exif GPS data
     pub calculate_nearest_city: bool,

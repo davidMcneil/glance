@@ -15,6 +15,7 @@ use sloggers::{
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path to save the media db index
+    // TODO: use standrd default directories (check out directories crate)
     #[arg(long)]
     index_path: PathBuf,
     /// Enable hashing of files when storing in index
@@ -24,6 +25,7 @@ struct Args {
     #[arg(long)]
     use_modified_if_created_not_set: bool,
     /// Filter files that are not media
+    // TODO: allow filtering by any type
     #[arg(long)]
     filter_by_media_type: bool,
     /// Calculate the nearest city from exif data
@@ -32,9 +34,6 @@ struct Args {
     /// Use exiftool cli
     #[arg(long)]
     use_exiftool: bool,
-    /// How to name files
-    #[arg(long, value_enum)]
-    naming: Naming,
     /// Log level
     #[arg(long)]
     log_level: Option<Severity>,
@@ -43,12 +42,9 @@ struct Args {
     command: Command,
 }
 
-#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+#[derive(Clone, Copy, Debug, ValueEnum)]
 enum Naming {
-    /// Naming scheme is left unchanged
-    #[default]
-    Free,
-    /// Standardize naming of files by moving them to folders of format `YY-mm-dd` within
+    /// Standardize naming of files by moving them to folders of format `YY-mm` within
     /// media path
     Time,
 }
@@ -61,25 +57,38 @@ impl Naming {
 
 #[derive(Debug, Parser)]
 struct IndexMedia {
-    /// Path to directory to import media files into
+    /// Purge unkown files
     #[arg(long)]
-    media_path: CanonicalizedPathBuf,
+    purge: bool,
+    /// Directories with media to index
+    #[arg(long)]
+    media_paths: Vec<CanonicalizedPathBuf>,
 }
 
 #[derive(Debug, Parser)]
-struct ImportMedia {
-    /// Path to directory to import media files into
+struct CopyMedia {
+    /// Directory to import media files into
     #[arg(long)]
-    media_path: CanonicalizedPathBuf,
+    to_media_path: CanonicalizedPathBuf,
     /// Path to save the import media db index
     #[arg(long)]
-    import_index_path: PathBuf,
-    /// Path to directory with media files to import
+    from_index_path: PathBuf,
+    /// Directory with media files to import
     #[arg(long)]
-    import_media_path: CanonicalizedPathBuf,
+    from_media_path: CanonicalizedPathBuf,
     /// Dry run; dont actually move any files
     #[arg(long)]
     dry_run: bool,
+}
+
+#[derive(Debug, Parser)]
+struct OrganizeMedia {
+    /// Directories with media to organize
+    #[arg(long)]
+    media_paths: Vec<CanonicalizedPathBuf>,
+    /// How to name files
+    #[arg(long, value_enum)]
+    naming: Naming,
 }
 
 /// Doc comment
@@ -91,7 +100,10 @@ enum Command {
     IndexMedia(IndexMedia),
     /// Copy media files from a directory to the `media-path`
     #[command()]
-    ImportMedia(ImportMedia),
+    CopyMedia(CopyMedia),
+    /// Rename files in `media-path`
+    #[command()]
+    OrganizeMedia(OrganizeMedia),
     /// Print stats on the media
     #[command()]
     Stats,
@@ -118,29 +130,35 @@ fn main() -> Result<()> {
 
     match args.command {
         Command::IndexMedia(sub_args) => {
-            let media_path = PathBuf::from(sub_args.media_path);
-            index.add_directory(&media_path, &config)?;
-            index.remove_not_in_directory(&media_path)?;
-            standardize_naming(&mut index, args.naming, &media_path)?;
+            for media_path in sub_args.media_paths {
+                let media_path = PathBuf::from(media_path);
+                index.add_directory(&media_path, &config)?;
+                // TODO: cant remove need to instead sync
+                index.remove_not_in_directory(&media_path)?;
+            }
         }
-        Command::ImportMedia(sub_args) => {
+        Command::CopyMedia(sub_args) => {
             if !args.calculate_hash {
                 // TODO: check that indexes already have hashes
                 return Err(anyhow!("Cannot import media without calculating the hash"));
             }
 
-            let import_media_path = PathBuf::from(sub_args.import_media_path);
-            let import_index_path = &sub_args.import_index_path;
+            let import_media_path = PathBuf::from(sub_args.from_media_path);
+            let import_index_path = &sub_args.from_index_path;
             let mut import_index = Index::new(import_index_path)?.with_logger(logger);
             import_index.add_directory(&import_media_path, &config)?;
             import_index.remove_not_in_directory(&import_media_path)?;
 
-            let media_path = PathBuf::from(sub_args.media_path);
+            let media_path = PathBuf::from(sub_args.to_media_path);
             index.add_directory(&media_path, &config)?;
             index.remove_not_in_directory(&media_path)?;
             index.import(import_index_path, &media_path, sub_args.dry_run)?;
-
-            standardize_naming(&mut index, args.naming, &media_path)?;
+        }
+        Command::OrganizeMedia(sub_args) => {
+            for media_path in sub_args.media_paths {
+                let media_path = PathBuf::from(media_path);
+                standardize_naming(&mut index, sub_args.naming, &media_path)?;
+            }
         }
         Command::Stats => {
             let stats = index.stats()?;
