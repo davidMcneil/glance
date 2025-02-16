@@ -6,5 +6,6 @@ members = [
     "glance-lib",
     "glance-ui",
     "glance-util",
-    "glance-iced"
+    "glance-iced",
+    "glance-dioxus"
 ]
