@@ -42,7 +42,7 @@ impl Application for GlanceUi {
         //         &AddDirectoryConfig {
         //             hash: false,
         //             filter_by_media: true,
-        //             use_modified_if_created_not_set: true,
+        //             metadata_fallback_for_created: true,
         //             calculate_nearest_city: false,
         //         },
         //     )

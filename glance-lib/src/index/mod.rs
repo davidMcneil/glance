@@ -41,6 +41,8 @@ pub enum Error {
     Exiftool(#[from] exiftool::Error),
     /// hashing enabled but hash missing from media row
     HashMissing,
+    /// file name missing
+    FileNameMissing,
     /// io: {0}
     Io(#[from] std::io::Error),
     /// rusqlite: {0}
@@ -77,7 +79,7 @@ pub struct AddDirectoryConfig {
     pub filter_by_media: bool,
     /// Use the modified time of the file if created is not set in exif data
     // TODO: seems this uses file created time not modified
-    pub use_modified_if_created_not_set: bool,
+    pub metadata_fallback_for_created: bool,
     /// Calculate the nearest city based on the exif GPS data
     pub calculate_nearest_city: bool,
     /// Try to use exiftool cli program
@@ -89,7 +91,7 @@ impl Default for AddDirectoryConfig {
         Self {
             hash: false,
             filter_by_media: true,
-            use_modified_if_created_not_set: true,
+            metadata_fallback_for_created: true,
             calculate_nearest_city: false,
             use_exiftool: false,
         }
@@ -174,8 +176,8 @@ impl Index {
             }
 
             if entry.file_type().is_file() {
-                let filename = entry.file_name();
-                if filename == "glance.db" {
+                let file_name = entry.file_name();
+                if file_name == "glance.db" {
                     continue;
                 }
 
@@ -321,50 +323,64 @@ impl Index {
         media_path: &Path,
         dry_run: bool,
     ) -> Result<(), Error> {
+        let logger = &self.logger;
+        info!(logger, "importing directory"; "import_index" => import_index_path.display());
+
         MediaSql::attach_for_import(import_index_path, &mut self.connection)?;
-        info!(self.logger, "importing media files"; "path" => import_index_path.display());
         let mut imported = 0u64;
-        let mut duplicates = 0u64;
         let transaction = self.connection.transaction()?;
         for media in MediaNewFromImport::new(&transaction)?
             .iter()?
             .map(from_media_sql_result)
         {
             let mut media = media?;
-            trace!(self.logger, "importing media"; "path" => media.filepath.display());
+            let logger = self
+                .logger
+                .new(o!("path" => media.filepath.display().to_string()));
+            trace!(logger, "importing media");
 
-            let Some(destination_file_name) = media.filepath.file_name() else {
-                continue;
-            };
+            // Build the new destination path
+            let destination_file_name = media.file_name()?;
             let destination_path: std::path::PathBuf = media_path.join(destination_file_name);
+
             if !dry_run {
+                if destination_path.exists() {
+                    error!(logger, "file to import already exists");
+                    continue;
+                }
+
                 fs::copy(&media.filepath, &destination_path)?;
                 media.filepath = destination_path;
                 let inserted = MediaSql::from(media).insert(&transaction)?;
                 if !inserted {
-                    duplicates += 1;
+                    error!(logger, "file to import already exists in index");
                     continue;
                 }
             }
-
             imported += 1;
         }
         transaction.commit()?;
-        info!(self.logger, "imported media files";
+        info!(logger, "imported directory";
             "imported" => imported,
-            "duplicates" => duplicates,
         );
         Ok(())
     }
 
-    pub fn standardize_naming<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    /// Place files in path in folders with `%Y-%m`
+    pub fn standardize_year_month_naming_directory<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), Error> {
         let logger = self
             .logger
             .new(o!("path" => path.as_ref().display().to_string()));
         info!(logger, "standardizing naming");
+
         let path = path.as_ref();
         let mut total = 0u64;
         let mut renamed = 0u64;
+        let mut unmodified = 0u64;
+        let mut missing_created = 0u64;
         for media in MediaSearch::new_with_filter_defaults(&self.connection)?
             .iter()?
             .map(from_media_sql_result)
@@ -372,16 +388,19 @@ impl Index {
             total += 1;
             let media = media?;
             if let Some(created) = media.created {
-                let folder_name = created.format("%Y-%m").to_string();
-                let destination_folder = path.join(&folder_name);
-                let Some(destination_file_name) = media.filepath.file_name() else {
-                    continue;
-                };
-                fs::create_dir_all(&destination_folder)?;
+                // Get the destination folder and path
+                let destination_folder = created.format("%Y-%m").to_string();
+                let destination_folder = path.join(&destination_folder);
+                let destination_file_name = media.file_name()?;
                 let destination_path = destination_folder.join(destination_file_name);
+
+                // if the new and current paths match there is nothing to do
                 if media.filepath == destination_path {
+                    unmodified += 1;
                     continue;
                 }
+
+                fs::create_dir_all(&destination_folder)?;
 
                 if destination_path.exists() {
                     error!(self.logger, "standardized destination name already exists";
@@ -403,12 +422,29 @@ impl Index {
                     "new_path" => destination_path.display(),
                 );
                 renamed += 1;
+            } else {
+                trace!(logger, "missing created");
+                missing_created += 1;
             }
         }
         info!(logger, "standardized naming";
             "total" => total,
             "renamed" => renamed,
+            "unmodified" => unmodified,
+            "missing_created" => missing_created,
         );
+        Ok(())
+    }
+
+    /// Standardize the naming of the directories
+    pub fn standardize_year_month_naming_directories<I, P>(&mut self, paths: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        for path in paths {
+            self.standardize_year_month_naming_directory(path)?;
+        }
         Ok(())
     }
 
@@ -459,10 +495,9 @@ impl Index {
         let label_folder = format!("{path_to_index}/glance-exports/{label}");
         fs::create_dir_all(label_folder.clone())?;
         for media in labeled_media {
-            if let Some(filename) = media.filepath.file_name() {
-                if let Some(filename) = filename.to_str() {
-                    symlink(&media.filepath, format!("{label_folder}/{filename}"))?;
-                }
+            let file_name = media.file_name()?;
+            if let Some(file_name) = file_name.to_str() {
+                symlink(&media.filepath, format!("{label_folder}/{file_name}"))?;
             }
         }
         info!(self.logger, "exported all images with label";
@@ -581,11 +616,11 @@ fn file_to_media_row(
     }
 
     // Fallback to using file data to get created instead of exif
-    // TODO: should we always set `use_modified_if_created_not_set` to avoid the option
+    // TODO: should we always set `metadata_fallback_for_created` to avoid the option
     if created.is_none() {
         failed_to_determine_created_from_exif = true;
         created = config
-            .use_modified_if_created_not_set
+            .metadata_fallback_for_created
             .then(|| metadata.created())
             .transpose()?
             .map(DateTime::<Utc>::from);

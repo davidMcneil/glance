@@ -188,7 +188,7 @@ impl eframe::App for GlanceUi {
                         "filter by media",
                     );
                     ui.checkbox(
-                        &mut self.add_directory_config.use_modified_if_created_not_set,
+                        &mut self.add_directory_config.metadata_fallback_for_created,
                         "use modified if created not set",
                     );
                     ui.checkbox(

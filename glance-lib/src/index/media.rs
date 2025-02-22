@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    ffi::OsStr,
     path::PathBuf,
 };
 
@@ -30,6 +31,14 @@ pub struct Media {
     pub device: Option<Device>,
     // pub iso: (),
     pub hash: Option<Hash>,
+}
+
+impl Media {
+    pub fn file_name(&self) -> Result<&OsStr, super::Error> {
+        self.filepath
+            .file_name()
+            .ok_or(super::Error::FileNameMissing)
+    }
 }
 
 impl From<MediaSql> for Media {

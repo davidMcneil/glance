@@ -18,7 +18,7 @@ fn file_to_media_row_test() -> Result<()> {
         let config = AddDirectoryConfig {
             hash: true,
             filter_by_media: false,
-            use_modified_if_created_not_set: false,
+            metadata_fallback_for_created: false,
             calculate_nearest_city: false,
             use_exiftool: false,
         };
@@ -45,7 +45,7 @@ fn add_directory_test() -> Result<()> {
     let config = AddDirectoryConfig {
         hash: true,
         filter_by_media: false,
-        use_modified_if_created_not_set: false,
+        metadata_fallback_for_created: false,
         calculate_nearest_city: true,
         use_exiftool: false,
     };
