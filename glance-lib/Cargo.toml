@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-blake3 = "1"
+blake3 = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["std"] }
 const_format = "0.2"
 dateparser = "0.2"
@@ -25,4 +25,4 @@ reverse_geocoder = "4"
 
 [dev-dependencies]
 anyhow = "1"
-insta = "1"
+insta = { version = "1", features = ["redactions", "yaml"] }

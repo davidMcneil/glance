@@ -3,115 +3,243 @@ source: glance-lib/src/index/tests.rs
 expression: data
 snapshot_kind: text
 ---
-[
-    Media {
-        filepath: "../test-media/exif-images/Canon_40D.jpg",
-        size: Size(
-            7958,
-        ),
-        format: "Joint Photographic Experts Group",
-        created: Some(
-            2008-05-30T15:56:01Z,
-        ),
-        location: None,
-        device: Some(
-            Device(
-                "Canon EOS 40D",
-            ),
-        ),
-        hash: Some(
-            Hash(
-                "72baf1c7acb71dc5108bd2503b64e4f6d23d2debf91eff25a7a72de5e848e807",
-            ),
-        ),
-    },
-    Media {
-        filepath: "../test-media/exif-images/Nikon_D70.jpg",
-        size: Size(
-            14034,
-        ),
-        format: "Joint Photographic Experts Group",
-        created: Some(
-            2008-03-15T09:52:01Z,
-        ),
-        location: None,
-        device: Some(
-            Device(
-                "NIKON D70",
-            ),
-        ),
-        hash: Some(
-            Hash(
-                "098925df4e803ad0f4a831893c221a1d235f39053a62d6ffd23ab5427c1d60ea",
-            ),
-        ),
-    },
-    Media {
-        filepath: "../test-media/exif-images/beach.jpg",
-        size: Size(
-            2076392,
-        ),
-        format: "Joint Photographic Experts Group",
-        created: Some(
-            2022-02-26T15:23:43Z,
-        ),
-        location: Some(
-            "Santa Barbara, California",
-        ),
-        device: Some(
-            Device(
-                "G60",
-            ),
-        ),
-        hash: Some(
-            Hash(
-                "abb29b8864b643d44b7d81dd175fdce92974125d3228346dcaa3722ec75b116b",
-            ),
-        ),
-    },
-    Media {
-        filepath: "../test-media/images/ferris.jpg",
-        size: Size(
-            14737,
-        ),
-        format: "Joint Photographic Experts Group",
-        created: None,
-        location: None,
-        device: None,
-        hash: Some(
-            Hash(
-                "d2684d75540d07f3ef1db33c033f67e895ed58e8a0ae46a93a607c0c1d1b575b",
-            ),
-        ),
-    },
-    Media {
-        filepath: "../test-media/images/ferris.png",
-        size: Size(
-            5380,
-        ),
-        format: "Portable Network Graphics",
-        created: None,
-        location: None,
-        device: None,
-        hash: Some(
-            Hash(
-                "09c54d7b9a87a3cf01c490bc72c924049e3dd94b651de7c813d52ca5a7d355b1",
-            ),
-        ),
-    },
-    Media {
-        filepath: "../test-media/rust-logo.png",
-        size: Size(
-            34593,
-        ),
-        format: "Portable Network Graphics",
-        created: None,
-        location: None,
-        device: None,
-        hash: Some(
-            Hash(
-                "dce78f6c525b0f932f6e72b256ce409aeb6c7d5681c9963d74362d33d3425627",
-            ),
-        ),
-    },
-]
+- filepath: "../test-media/exif-images/Canon_40D.jpg"
+  size: 7958
+  format: Joint Photographic Experts Group
+  created: "2008-05-30T15:56:01Z"
+  modified: "[datetime]"
+  location: ~
+  device: Canon EOS 40D
+  hash:
+    - 114
+    - 186
+    - 241
+    - 199
+    - 172
+    - 183
+    - 29
+    - 197
+    - 16
+    - 139
+    - 210
+    - 80
+    - 59
+    - 100
+    - 228
+    - 246
+    - 210
+    - 61
+    - 45
+    - 235
+    - 249
+    - 30
+    - 255
+    - 37
+    - 167
+    - 167
+    - 45
+    - 229
+    - 232
+    - 72
+    - 232
+    - 7
+- filepath: "../test-media/exif-images/Nikon_D70.jpg"
+  size: 14034
+  format: Joint Photographic Experts Group
+  created: "2008-03-15T09:52:01Z"
+  modified: "[datetime]"
+  location: ~
+  device: NIKON D70
+  hash:
+    - 9
+    - 137
+    - 37
+    - 223
+    - 78
+    - 128
+    - 58
+    - 208
+    - 244
+    - 168
+    - 49
+    - 137
+    - 60
+    - 34
+    - 26
+    - 29
+    - 35
+    - 95
+    - 57
+    - 5
+    - 58
+    - 98
+    - 214
+    - 255
+    - 210
+    - 58
+    - 181
+    - 66
+    - 124
+    - 29
+    - 96
+    - 234
+- filepath: "../test-media/exif-images/beach.jpg"
+  size: 2076392
+  format: Joint Photographic Experts Group
+  created: "2022-02-26T15:23:43Z"
+  modified: "[datetime]"
+  location: "Santa Barbara, California"
+  device: G60
+  hash:
+    - 171
+    - 178
+    - 155
+    - 136
+    - 100
+    - 182
+    - 67
+    - 212
+    - 75
+    - 125
+    - 129
+    - 221
+    - 23
+    - 95
+    - 220
+    - 233
+    - 41
+    - 116
+    - 18
+    - 93
+    - 50
+    - 40
+    - 52
+    - 109
+    - 202
+    - 163
+    - 114
+    - 46
+    - 199
+    - 91
+    - 17
+    - 107
+- filepath: "../test-media/images/ferris.jpg"
+  size: 14737
+  format: Joint Photographic Experts Group
+  created: ~
+  modified: "[datetime]"
+  location: ~
+  device: ~
+  hash:
+    - 210
+    - 104
+    - 77
+    - 117
+    - 84
+    - 13
+    - 7
+    - 243
+    - 239
+    - 29
+    - 179
+    - 60
+    - 3
+    - 63
+    - 103
+    - 232
+    - 149
+    - 237
+    - 88
+    - 232
+    - 160
+    - 174
+    - 70
+    - 169
+    - 58
+    - 96
+    - 124
+    - 12
+    - 29
+    - 27
+    - 87
+    - 91
+- filepath: "../test-media/images/ferris.png"
+  size: 5380
+  format: Portable Network Graphics
+  created: ~
+  modified: "[datetime]"
+  location: ~
+  device: ~
+  hash:
+    - 9
+    - 197
+    - 77
+    - 123
+    - 154
+    - 135
+    - 163
+    - 207
+    - 1
+    - 196
+    - 144
+    - 188
+    - 114
+    - 201
+    - 36
+    - 4
+    - 158
+    - 61
+    - 217
+    - 75
+    - 101
+    - 29
+    - 231
+    - 200
+    - 19
+    - 213
+    - 44
+    - 165
+    - 167
+    - 211
+    - 85
+    - 177
+- filepath: "../test-media/rust-logo.png"
+  size: 34593
+  format: Portable Network Graphics
+  created: ~
+  modified: "[datetime]"
+  location: ~
+  device: ~
+  hash:
+    - 220
+    - 231
+    - 143
+    - 108
+    - 82
+    - 91
+    - 15
+    - 147
+    - 47
+    - 110
+    - 114
+    - 178
+    - 86
+    - 206
+    - 64
+    - 154
+    - 235
+    - 108
+    - 125
+    - 86
+    - 129
+    - 201
+    - 150
+    - 61
+    - 116
+    - 54
+    - 45
+    - 51
+    - 211
+    - 66
+    - 86
+    - 39

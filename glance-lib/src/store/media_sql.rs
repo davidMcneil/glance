@@ -2,13 +2,16 @@ use std::{collections::HashMap, path::Path};
 
 use chrono::{DateTime, Utc};
 use const_format::formatcp;
-use rusqlite::{named_params, Connection, Error, ErrorCode, Row, Statement, ToSql};
+use rusqlite::{
+    named_params, Connection, Error, ErrorCode, OptionalExtension, Row, Statement, ToSql,
+};
 
 use super::converters::{FileFormatSql, HashSql, PathBufSql};
 
 const IMPORT_DB: &str = "import";
-const COLUMNS: &str = "filepath, size, format, created, location, device, hash";
-const COLUMNS_WITH_PREFIX: &str = "media.filepath, size, format, created, location, device, hash";
+const COLUMNS: &str = "filepath, size, format, created, modified, location, device, hash";
+const COLUMNS_WITH_PREFIX: &str =
+    "media.filepath, size, format, created, modified, location, device, hash";
 
 /// Low level type for interacting with media rows
 #[derive(Debug)]
@@ -17,7 +20,7 @@ pub(crate) struct MediaSql {
     pub size: u64,
     pub format: FileFormatSql,
     pub created: Option<DateTime<Utc>>,
-    // pub modified: Option<DateTime<Utc>>,
+    pub modified: DateTime<Utc>,
     pub location: Option<String>,
     pub device: Option<String>,
     // pub iso: (),
@@ -55,6 +58,7 @@ impl MediaSql {
                     size INTEGER NOT NULL,
                     format TEXT NOT NULL,
                     created TEXT,
+                    modified TEXT,
                     location TEXT,
                     device TEXT,
                     hash BLOB
@@ -77,13 +81,14 @@ impl MediaSql {
     pub fn insert(&self, conn: &Connection) -> Result<bool, Error> {
         let mut stmt = conn.prepare(formatcp!(
             "INSERT INTO media ({COLUMNS}) \
-            VALUES (:filepath, :size, :format, :created, :location, :device, :hash)"
+            VALUES (:filepath, :size, :format, :created, :modified, :location, :device, :hash)"
         ))?;
         let res = stmt.insert(named_params! {
             ":filepath": self.filepath,
             ":size": self.size,
             ":format": self.format,
             ":created": &self.created,
+            ":modified": &self.modified,
             ":location": &self.location,
             ":device": &self.device,
             ":hash": self.hash,
@@ -125,22 +130,31 @@ impl MediaSql {
     }
 
     pub fn count_by_format(conn: &Connection) -> Result<HashMap<Option<String>, i64>, Error> {
-        let mut stmt = conn.prepare("SELECT format, COUNT(*) from media GROUP BY format")?;
-        let iter = stmt.query_and_then([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        iter.collect()
+        count_by(conn, "SELECT format, COUNT(*) from media GROUP BY format")
     }
 
     pub fn count_by_device(conn: &Connection) -> Result<HashMap<Option<String>, i64>, Error> {
-        let mut stmt = conn.prepare("SELECT device, COUNT(*) from media GROUP BY device")?;
-        let iter = stmt.query_and_then([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        iter.collect()
+        count_by(conn, "SELECT device, COUNT(*) from media GROUP BY device")
     }
 
-    pub fn exists_by_filepath(conn: &Connection, filepath: &PathBufSql) -> Result<bool, Error> {
-        let mut stmt = conn.prepare("SELECT 1 FROM media WHERE filepath = :filepath")?;
-        stmt.exists(named_params! {
-            ":filepath": filepath,
-        })
+    pub fn count_by_year(conn: &Connection) -> Result<HashMap<Option<String>, i64>, Error> {
+        count_by(conn, "SELECT strftime('%Y', created), COUNT(*) FROM media WHERE created IS NOT NULL GROUP BY strftime('%Y', created)")
+    }
+
+    pub fn get_by_filepath(
+        conn: &Connection,
+        filepath: &PathBufSql,
+    ) -> Result<Option<MediaSql>, Error> {
+        let mut stmt = conn.prepare(formatcp!(
+            "SELECT {COLUMNS} FROM media WHERE filepath = :filepath"
+        ))?;
+        stmt.query_row(
+            named_params! {
+                ":filepath": filepath,
+            },
+            |row| MediaSql::try_from(row),
+        )
+        .optional()
     }
 
     #[allow(dead_code)]
@@ -272,13 +286,20 @@ impl TryFrom<&Row<'_>> for MediaSql {
             size: row.get(1)?,
             format: row.get(2)?,
             created: row.get(3)?,
-            location: row.get(4)?,
-            device: row.get(5)?,
-            hash: row.get(6)?,
+            modified: row.get(4)?,
+            location: row.get(5)?,
+            device: row.get(6)?,
+            hash: row.get(7)?,
         })
     }
 }
 
 fn duplicate_row(res: &Result<i64, rusqlite::Error>) -> bool {
     matches!(res.as_ref().err().and_then(|e| e.sqlite_error_code()), Some(e) if e == ErrorCode::ConstraintViolation)
+}
+
+fn count_by(conn: &Connection, query: &str) -> Result<HashMap<Option<String>, i64>, Error> {
+    let mut stmt = conn.prepare(query)?;
+    let iter = stmt.query_and_then([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    iter.collect()
 }

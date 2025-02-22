@@ -39,6 +39,8 @@ mod tests;
 pub enum Error {
     /// exiftool: {0}
     Exiftool(#[from] exiftool::Error),
+    /// hashing enabled but hash missing from media row
+    HashMissing,
     /// io: {0}
     Io(#[from] std::io::Error),
     /// rusqlite: {0}
@@ -62,6 +64,8 @@ pub struct Stats {
     pub count_by_format: HashMap<Option<String>, i64>,
     #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
     pub count_by_device: HashMap<Option<String>, i64>,
+    #[serde_as(as = "FromInto<HashMapWithUnknown<String, i64>>")]
+    pub count_by_year: HashMap<Option<String>, i64>,
     pub duplicates: usize,
 }
 
@@ -135,6 +139,7 @@ impl Index {
         self
     }
 
+    /// Add the contents of a directory to the index
     pub fn add_directory<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -147,8 +152,10 @@ impl Index {
         let mut files = 0u64;
         let mut dirs = 0u64;
         let mut added = 0u64;
-        let mut duplicates = 0u64;
-        let mut filtered = 0u64;
+        let mut unmodifed = 0u64;
+        let mut filtered_due_to_filetype = 0u64;
+        let mut failed_to_read_exif = 0u64;
+        let mut failed_to_determine_created_from_exif = 0u64;
         let mut failed = 0u64;
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
@@ -178,53 +185,85 @@ impl Index {
                     .new(o!("path" => entry.path().display().to_string()));
 
                 let filepath = entry.path().to_path_buf().into();
-                if MediaSql::exists_by_filepath(&transaction, &filepath)? {
-                    trace!(logger, "duplicate filepath");
-                    duplicates += 1;
-                    continue;
-                }
+                // Check if the file already exists in the index?
+                let existing = MediaSql::get_by_filepath(&transaction, &filepath)?.map(Media::from);
 
-                match file_to_media_row(&entry, config, &logger) {
-                    Ok(Some(new_row)) => {
+                match file_to_media_row(&entry, existing.as_ref(), config, &logger) {
+                    Ok(FileToMediaRowResult::New {
+                        media,
+                        failed_to_read_exif: f_to_read_exif,
+                        failed_to_determine_created_from_exif: f_to_determine_created_from_exif,
+                    }) => {
                         trace!(logger, "adding file");
-                        let inserted = MediaSql::from(new_row).insert(&transaction)?;
+                        if f_to_read_exif {
+                            failed_to_read_exif += 1;
+                        }
+                        if f_to_determine_created_from_exif {
+                            failed_to_determine_created_from_exif += 1;
+                        }
+                        let inserted = MediaSql::from(media).insert(&transaction)?;
                         if !inserted {
-                            trace!(logger, "duplicate file");
-                            duplicates += 1;
+                            error!(logger, "failed to add file");
+                            failed += 1;
                             continue;
                         }
                         added += 1;
                     }
-                    Ok(None) => {
+                    Ok(FileToMediaRowResult::Unmodified) => {
+                        trace!(logger, "unmodified");
+                        unmodifed += 1;
+                    }
+                    Ok(FileToMediaRowResult::SkippedFileType) => {
                         trace!(logger, "filtered file");
-                        filtered += 1;
+                        filtered_due_to_filetype += 1;
                     }
                     Err(e) => {
-                        error!(logger, "failed to process file";
-                            "error" => e.to_string(),
-                        );
+                        error!(logger, "failed to process file"; "error" => %e);
                         failed += 1;
                     }
                 }
             }
         }
+
+        // TODO: we should also remove any entries in the index that are not in this folder.
+        // That would allow removing the blanket `remove_nonexistent` calls. That are currently
+        // needed to get eventual consistency. We should store the existance in the DB. This
+        // would allow us to iterate files only once.
+
         transaction.commit()?;
         info!(logger, "added directory";
             "files" => files,
             "dirs" => dirs,
             "added" => added,
-            "duplicates" => duplicates,
-            "filtered" => filtered,
+            "unmodifed" => unmodifed,
+            "filtered_due_to_filetype" => filtered_due_to_filetype,
+            "failed_to_read_exif" => failed_to_read_exif,
+            "failed_to_determine_created_from_exif" => failed_to_determine_created_from_exif,
             "failed" => failed,
         );
         Ok(())
     }
 
-    pub fn remove_not_in_directory<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
-        let logger = self
-            .logger
-            .new(o!("path" => path.as_ref().display().to_string()));
-        info!(logger, "removing files not in directory");
+    /// Add the contents of a directories to the index
+    pub fn add_directories<I, P>(
+        &mut self,
+        paths: I,
+        config: &AddDirectoryConfig,
+    ) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        for path in paths {
+            self.add_directory(path, config)?;
+        }
+        Ok(())
+    }
+
+    /// Remove files that do not exist on the filesystem from the index
+    pub fn remove_missing(&mut self) -> Result<(), Error> {
+        let logger = &self.logger;
+        info!(logger, "removing missing files");
         let mut removed = 0u64;
         let transaction = self.connection.transaction()?;
         for media in MediaSearch::new_with_filter_defaults(&transaction)?
@@ -239,7 +278,7 @@ impl Index {
             }
         }
         transaction.commit()?;
-        info!(logger, "removed files not in directory";
+        info!(logger, "removed missing files";
             "removed" => removed,
         );
         Ok(())
@@ -264,6 +303,7 @@ impl Index {
             count: MediaSql::count(&self.connection)?,
             count_by_format: MediaSql::count_by_format(&self.connection)?,
             count_by_device: MediaSql::count_by_device(&self.connection)?,
+            count_by_year: MediaSql::count_by_year(&self.connection)?,
             duplicates: self.duplicates()?.len(),
         })
     }
@@ -433,74 +473,141 @@ impl Index {
     }
 }
 
+enum FileToMediaRowResult {
+    Unmodified,
+    SkippedFileType,
+    New {
+        media: Media,
+        failed_to_determine_created_from_exif: bool,
+        failed_to_read_exif: bool,
+    },
+}
+
+impl FileToMediaRowResult {
+    #[cfg(test)]
+    pub fn new_or_else<E, F>(self, err: F) -> Result<Media, E>
+    where
+        F: FnOnce() -> E,
+    {
+        match self {
+            Self::New {
+                media,
+                failed_to_determine_created_from_exif: _,
+                failed_to_read_exif: _,
+            } => Ok(media),
+            _ => Err(err()),
+        }
+    }
+}
+
 fn file_to_media_row(
     entry: &DirEntry,
+    existing: Option<&Media>,
     config: &AddDirectoryConfig,
     logger: &Logger,
-) -> Result<Option<Media>, Error> {
-    let path = entry.path().to_path_buf();
-    let format = FileFormat::from_file(&path)?;
-    if config.filter_by_media && !matches!(format.kind(), Kind::Image) {
-        return Ok(None);
-    }
+) -> Result<FileToMediaRowResult, Error> {
+    let filepath = entry.path().to_path_buf();
+
+    // Check if the file has changed. If not return the existing entry.
     let metadata = entry.metadata()?;
+    let modified = metadata.modified()?.into();
+    if let Some(existing) = existing {
+        if modified == existing.modified {
+            if config.hash && existing.hash.is_none() {
+                // TODO: we dont need to hard fail we could compute the hash
+                error!(logger, "hashing enabled but hash missing from media row");
+                return Err(Error::HashMissing);
+            }
+            trace!(logger, "skipping due to modified check");
+            return Ok(FileToMediaRowResult::Unmodified);
+        }
+    }
+
+    // Check the format
+    let format = FileFormat::from_file(&filepath)?;
+    if config.filter_by_media && !matches!(format.kind(), Kind::Image) {
+        trace!(logger, "skipping due to file type");
+        return Ok(FileToMediaRowResult::SkippedFileType);
+    }
+
+    // Compute the hash
     let hash = if config.hash {
-        let bytes = fs::read(&path)?;
+        let bytes = fs::read(&filepath)?;
         Some(blake3::hash(&bytes))
     } else {
         None
     };
-    let created = if config.use_modified_if_created_not_set {
-        metadata.created().ok().map(DateTime::<Utc>::from)
-    } else {
-        None
-    };
 
-    let mut row = Media {
-        filepath: path.clone(),
-        size: metadata.len().into(),
-        format: format.name().to_string(),
-        created,
-        location: None,
-        device: None,
-        hash,
-    };
-
-    let file = std::fs::File::open(&path)?;
+    // Read exif data and extract created, device, and location fields
+    let file = std::fs::File::open(&filepath)?;
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader);
+    let mut created = None;
+    let mut device = None;
+    let mut location = None;
+    let mut failed_to_read_exif = false;
+    let mut failed_to_determine_created_from_exif = false;
     match exif {
         Ok(exif) => {
             if let Some(date_taken) = exif
                 .get_field(Tag::DateTimeOriginal, In::PRIMARY)
                 .or_else(|| exif.get_field(Tag::DateTime, In::PRIMARY))
             {
-                let date_taken_string = format!("{}", date_taken.display_value());
-                if let Ok(date_taken) = parse_with_timezone(&date_taken_string, &Utc) {
-                    row.created = Some(date_taken);
+                let date_taken = format!("{}", date_taken.display_value());
+                match parse_with_timezone(&date_taken, &Utc) {
+                    Ok(date_taken) => created = Some(date_taken),
+                    Err(e) => {
+                        error!(logger, "failed to parse date_taken"; "date_taken" => date_taken, "error" => %e);
+                    }
                 }
             }
             if let Some(model) = exif.get_field(Tag::Model, In::PRIMARY) {
                 let model_string = exif_field_to_string(model);
-                row.device = Some(Device::from(model_string));
+                device = Some(Device::from(model_string));
             }
             if config.calculate_nearest_city {
-                row.location = get_location_from_exif(&exif);
+                location = get_location_from_exif(&exif);
             }
         }
         Err(e) => {
-            trace!(logger, "failed reading exif"; "error" => e.to_string());
+            error!(logger, "failed reading exif"; "error" => %e);
+            failed_to_read_exif = true;
             if config.use_exiftool {
-                let exif = ExiftoolData::get(&path, logger)?;
-                row.created = exif.created;
+                let exif = ExiftoolData::get(&filepath, logger)?;
+                created = exif.created;
             }
         }
     }
-    if row.created.is_none() {
+
+    // Fallback to using file data to get created instead of exif
+    // TODO: should we always set `use_modified_if_created_not_set` to avoid the option
+    if created.is_none() {
+        failed_to_determine_created_from_exif = true;
+        created = config
+            .use_modified_if_created_not_set
+            .then(|| metadata.created())
+            .transpose()?
+            .map(DateTime::<Utc>::from);
+    }
+    if created.is_none() {
         error!(logger, "failed to get created");
     }
-    Ok(Some(row))
+
+    Ok(FileToMediaRowResult::New {
+        media: Media {
+            filepath,
+            size: metadata.len().into(),
+            format: format.name().to_string(),
+            created,
+            modified,
+            location,
+            device,
+            hash,
+        },
+        failed_to_read_exif,
+        failed_to_determine_created_from_exif,
+    })
 }
 
 #[allow(clippy::get_first)]

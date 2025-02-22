@@ -130,12 +130,8 @@ fn main() -> Result<()> {
 
     match args.command {
         Command::IndexMedia(sub_args) => {
-            for media_path in sub_args.media_paths {
-                let media_path = PathBuf::from(media_path);
-                index.add_directory(&media_path, &config)?;
-                // TODO: cant remove need to instead sync
-                index.remove_not_in_directory(&media_path)?;
-            }
+            index.add_directories(sub_args.media_paths.iter(), &config)?;
+            index.remove_missing()?;
         }
         Command::CopyMedia(sub_args) => {
             if !args.calculate_hash {
@@ -147,11 +143,11 @@ fn main() -> Result<()> {
             let import_index_path = &sub_args.from_index_path;
             let mut import_index = Index::new(import_index_path)?.with_logger(logger);
             import_index.add_directory(&import_media_path, &config)?;
-            import_index.remove_not_in_directory(&import_media_path)?;
+            import_index.remove_missing()?;
 
             let media_path = PathBuf::from(sub_args.to_media_path);
             index.add_directory(&media_path, &config)?;
-            index.remove_not_in_directory(&media_path)?;
+            index.remove_missing()?;
             index.import(import_index_path, &media_path, sub_args.dry_run)?;
         }
         Command::OrganizeMedia(sub_args) => {

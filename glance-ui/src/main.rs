@@ -325,7 +325,7 @@ impl eframe::App for GlanceUi {
                                     ) {
                                         warn!(self.logger, "failed to export label";
                                             "label" => label,
-                                            "error" => e.to_string(),
+                                            "error" => %e,
                                         );
                                     }
                                 }
@@ -453,7 +453,7 @@ impl eframe::App for GlanceUi {
                                 };
                                 if let Err(e) = toggle_result {
                                     warn!(self.logger, "failed to add/remove label";
-                                        "error" => e.to_string(),
+                                        "error" => %e,
                                     );
                                 }
                                 if let Ok(all_labels) = index.get_all_labels() {

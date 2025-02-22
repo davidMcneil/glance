@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::str::FromStr;
 use std::{io::Error, path::PathBuf};
 
@@ -11,5 +12,11 @@ impl FromStr for CanonicalizedPathBuf {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self(PathBuf::from(s).canonicalize()?))
+    }
+}
+
+impl AsRef<Path> for CanonicalizedPathBuf {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
     }
 }
