@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand, ValueEnum};
+use directories::ProjectDirs;
 use glance_lib::index::{AddDirectoryConfig, Index};
 use glance_util::canonicalized_path_buf::CanonicalizedPathBuf;
 use sloggers::{
@@ -10,13 +11,16 @@ use sloggers::{
     Build,
 };
 
+const QUALIFIER: &str = "";
+const ORGANIZATION: &str = "";
+const APPLICATION: &str = "glance";
+
 /// The quick media viewer
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path to save the media db index
-    // TODO: use standrd default directories (check out directories crate)
-    #[arg(long)]
+    #[arg(long, default_value = default_main_index_path())]
     index: PathBuf,
     /// Enable hashing of files when storing in index
     #[arg(long)]
@@ -49,7 +53,7 @@ enum Command {
     /// Add media files to the index
     #[command()]
     IndexMedia(IndexMedia),
-    /// Copy media files from a directory to the `media-path`
+    /// Copy media files from a directory to another directory and index
     #[command()]
     ImportMedia(ImportMedia),
     /// Rename files in `media-paths`
@@ -73,7 +77,7 @@ struct ImportMedia {
     #[arg(long)]
     to_path: CanonicalizedPathBuf,
     /// Path to save the import media db index
-    #[arg(long)]
+    #[arg(long, default_value = default_import_index_path())]
     import_index: PathBuf,
     /// Directory with media files to import
     #[arg(long)]
@@ -100,6 +104,24 @@ enum Standardization {
     YearMonth,
 }
 
+fn data_directory() -> PathBuf {
+    ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
+        .map(|proj_dirs| proj_dirs.data_dir().to_path_buf())
+        .unwrap_or_else(|| ".".into())
+}
+
+fn default_main_index_path() -> clap::builder::OsStr {
+    let mut path = data_directory();
+    path.push("main.db");
+    path.into_os_string().into()
+}
+
+fn default_import_index_path() -> clap::builder::OsStr {
+    let mut path = data_directory();
+    path.push("import.db");
+    path.into_os_string().into()
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -109,6 +131,7 @@ fn main() -> Result<()> {
         .source_location(SourceLocation::None)
         .build()?;
 
+    std::fs::create_dir_all(data_directory())?;
     let mut index = Index::new(args.index)?.with_logger(logger.clone());
 
     let config = AddDirectoryConfig {

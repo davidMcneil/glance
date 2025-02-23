@@ -606,11 +606,12 @@ fn file_to_media_row(
             }
         }
         Err(e) => {
-            error!(logger, "failed reading exif"; "error" => %e);
-            failed_to_read_exif = true;
             if config.use_exiftool {
                 let exif = ExiftoolData::get(&filepath, logger)?;
                 created = exif.created;
+            } else {
+                error!(logger, "failed reading exif"; "error" => %e);
+                failed_to_read_exif = true;
             }
         }
     }
