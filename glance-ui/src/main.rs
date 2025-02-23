@@ -90,7 +90,7 @@ impl GlanceUi {
         if let Some(index) = &mut self.index {
             if let Some(path) = &self.picked_path {
                 index
-                    .add_directory(path, &self.add_directory_config)
+                    .index(path, &self.add_directory_config)
                     .expect("to be able to add directory");
             }
         }

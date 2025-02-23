@@ -143,7 +143,7 @@ impl Index {
     }
 
     /// Add the contents of a directory to the index
-    pub fn add_directory<P: AsRef<Path>>(
+    pub fn index<P: AsRef<Path>>(
         &mut self,
         path: P,
         config: &AddDirectoryConfig,
@@ -259,17 +259,13 @@ impl Index {
     }
 
     /// Add the contents of a directories to the index
-    pub fn add_directories<I, P>(
-        &mut self,
-        paths: I,
-        config: &AddDirectoryConfig,
-    ) -> Result<(), Error>
+    pub fn index_many<I, P>(&mut self, paths: I, config: &AddDirectoryConfig) -> Result<(), Error>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<Path>,
     {
         for path in paths {
-            self.add_directory(path, config)?;
+            self.index(path, config)?;
         }
         Ok(())
     }
@@ -298,7 +294,7 @@ impl Index {
         Ok(())
     }
 
-    pub fn deindex_paths<I, P>(&mut self, paths: I) -> Result<(), Error>
+    pub fn deindex<I, P>(&mut self, paths: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<Path>,
@@ -393,10 +389,7 @@ impl Index {
     }
 
     /// Place files in path in folders with `%Y-%m`
-    pub fn standardize_year_month_naming_directory<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Result<(), Error> {
+    pub fn standardize_year_month_naming<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let logger = self
             .logger
             .new(o!("path" => path.as_ref().display().to_string()));
@@ -463,13 +456,13 @@ impl Index {
     }
 
     /// Standardize the naming of the directories
-    pub fn standardize_year_month_naming_directories<I, P>(&mut self, paths: I) -> Result<(), Error>
+    pub fn standardize_year_month_naming_many<I, P>(&mut self, paths: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<Path>,
     {
         for path in paths {
-            self.standardize_year_month_naming_directory(path)?;
+            self.standardize_year_month_naming(path)?;
         }
         Ok(())
     }

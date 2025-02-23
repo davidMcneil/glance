@@ -49,7 +49,7 @@ fn add_directory_test() -> Result<()> {
         calculate_nearest_city: true,
         use_exiftool: false,
     };
-    index.add_directory("../test-media", &config)?;
+    index.index("../test-media", &config)?;
     let mut data = index.get_media()?;
     data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
     assert_yaml_snapshot!(data, {".*.modified" => "[datetime]"});
@@ -60,7 +60,7 @@ fn add_directory_test() -> Result<()> {
 fn add_label_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
     let config = AddDirectoryConfig::default();
-    index.add_directory("../test-media", &config)?;
+    index.index("../test-media", &config)?;
     let mut data = index.get_media()?;
     data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
     for media in &data {
@@ -81,7 +81,7 @@ fn add_label_test() -> Result<()> {
 fn get_media_with_label_filter_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
     let config = AddDirectoryConfig::default();
-    index.add_directory("../test-media", &config)?;
+    index.index("../test-media", &config)?;
     let mut data = index.get_media()?;
     data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
     for media in &data {
@@ -116,7 +116,7 @@ fn get_media_with_label_filter_test() -> Result<()> {
 fn get_all_labels_test() -> Result<()> {
     let mut index = Index::new_for_test(function!())?;
     let config = AddDirectoryConfig::default();
-    index.add_directory("../test-media", &config)?;
+    index.index("../test-media", &config)?;
     let mut data = index.get_media()?;
     data.sort_by(|a, b| a.filepath.cmp(&b.filepath));
     for media in &data {

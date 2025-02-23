@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use directories::ProjectDirs;
-use glance_lib::index::{AddDirectoryConfig, Index};
+use glance_lib::index::{AddDirectoryConfig, Index as GlanceIndex};
 use glance_util::canonicalized_path_buf::CanonicalizedPathBuf;
 use sloggers::{
     terminal::TerminalLoggerBuilder,
@@ -54,32 +54,32 @@ struct Args {
 enum Command {
     /// Add media files to the index
     #[command()]
-    IndexMedia(IndexMedia),
+    Index(Index),
     /// Copy media files from a directory to another directory and index
     #[command()]
-    ImportMedia(ImportMedia),
+    Import(Import),
     /// Remove media from just the index
     ///
     /// This does not remove any files from the filesystem
     #[command()]
-    DeindexMedia(DeindexMedia),
+    Deindex(Deindex),
     /// Rename files in `media-paths`
     #[command()]
-    StandardizeNaming(StandardizePaths),
+    StandardizeNaming(StandardizeNaming),
     /// Print stats on the media
     #[command()]
     Stats,
 }
 
 #[derive(Debug, Parser)]
-struct IndexMedia {
+struct Index {
     /// Directories with media to index
     #[arg(long)]
     paths: Vec<CanonicalizedPathBuf>,
 }
 
 #[derive(Debug, Parser)]
-struct ImportMedia {
+struct Import {
     /// Directory to import media files into
     #[arg(long)]
     to_path: CanonicalizedPathBuf,
@@ -95,14 +95,14 @@ struct ImportMedia {
 }
 
 #[derive(Debug, Parser)]
-struct DeindexMedia {
+struct Deindex {
     /// Paths to remove from the index
     #[arg(long)]
     paths: Vec<CanonicalizedPathBuf>,
 }
 
 #[derive(Debug, Parser)]
-struct StandardizePaths {
+struct StandardizeNaming {
     /// Directories with media to standardize paths
     #[arg(long)]
     paths: Vec<CanonicalizedPathBuf>,
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
         .build()?;
 
     std::fs::create_dir_all(data_directory())?;
-    let mut index = Index::new(args.index)?.with_logger(logger.clone());
+    let mut index = GlanceIndex::new(args.index)?.with_logger(logger.clone());
 
     let config = AddDirectoryConfig {
         hash: !args.disable_hash,
@@ -157,11 +157,11 @@ fn main() -> Result<()> {
     };
 
     match args.command {
-        Command::IndexMedia(sub_args) => {
-            index.add_directories(sub_args.paths.iter(), &config)?;
+        Command::Index(sub_args) => {
+            index.index_many(sub_args.paths.iter(), &config)?;
             index.deindex_missing()?;
         }
-        Command::ImportMedia(sub_args) => {
+        Command::Import(sub_args) => {
             if !args.disable_hash {
                 // TODO: we could recompute the hashes
                 return Err(anyhow!("Cannot import media without calculating the hash"));
@@ -170,22 +170,22 @@ fn main() -> Result<()> {
             let from_index_path = &sub_args.import_index;
 
             // Build up the import index
-            let mut import_index = Index::new(from_index_path)?.with_logger(logger);
-            import_index.add_directory(&sub_args.from_path, &config)?;
+            let mut import_index = GlanceIndex::new(from_index_path)?.with_logger(logger);
+            import_index.index(&sub_args.from_path, &config)?;
             import_index.deindex_missing()?;
 
             // Build up the main index
-            index.add_directory(&sub_args.to_path, &config)?;
+            index.index(&sub_args.to_path, &config)?;
             index.deindex_missing()?;
 
             index.import(from_index_path, sub_args.to_path.as_ref(), sub_args.dry_run)?;
         }
-        Command::DeindexMedia(sub_args) => {
-            index.deindex_paths(sub_args.paths)?;
+        Command::Deindex(sub_args) => {
+            index.deindex(sub_args.paths)?;
         }
         Command::StandardizeNaming(sub_args) => match sub_args.naming {
             Standardization::YearMonth => {
-                index.standardize_year_month_naming_directories(sub_args.paths)?
+                index.standardize_year_month_naming_many(sub_args.paths)?
             }
         },
         Command::Stats => {
