@@ -58,6 +58,11 @@ enum Command {
     /// Copy media files from a directory to another directory and index
     #[command()]
     ImportMedia(ImportMedia),
+    /// Remove media from just the index
+    ///
+    /// This does not remove any files from the filesystem
+    #[command()]
+    DeindexMedia(DeindexMedia),
     /// Rename files in `media-paths`
     #[command()]
     StandardizeNaming(StandardizePaths),
@@ -87,6 +92,13 @@ struct ImportMedia {
     /// Dry run; dont actually move any files
     #[arg(long)]
     dry_run: bool,
+}
+
+#[derive(Debug, Parser)]
+struct DeindexMedia {
+    /// Paths to remove from the index
+    #[arg(long)]
+    paths: Vec<CanonicalizedPathBuf>,
 }
 
 #[derive(Debug, Parser)]
@@ -147,7 +159,7 @@ fn main() -> Result<()> {
     match args.command {
         Command::IndexMedia(sub_args) => {
             index.add_directories(sub_args.paths.iter(), &config)?;
-            index.remove_missing()?;
+            index.deindex_missing()?;
         }
         Command::ImportMedia(sub_args) => {
             if !args.disable_hash {
@@ -160,13 +172,16 @@ fn main() -> Result<()> {
             // Build up the import index
             let mut import_index = Index::new(from_index_path)?.with_logger(logger);
             import_index.add_directory(&sub_args.from_path, &config)?;
-            import_index.remove_missing()?;
+            import_index.deindex_missing()?;
 
             // Build up the main index
             index.add_directory(&sub_args.to_path, &config)?;
-            index.remove_missing()?;
+            index.deindex_missing()?;
 
             index.import(from_index_path, sub_args.to_path.as_ref(), sub_args.dry_run)?;
+        }
+        Command::DeindexMedia(sub_args) => {
+            index.deindex_paths(sub_args.paths)?;
         }
         Command::StandardizeNaming(sub_args) => match sub_args.naming {
             Standardization::YearMonth => {

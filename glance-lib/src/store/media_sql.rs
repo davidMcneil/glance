@@ -102,9 +102,13 @@ impl MediaSql {
     }
 
     pub fn delete(&self, conn: &Connection) -> Result<usize, Error> {
+        Self::delete_path((&self.filepath).into(), conn)
+    }
+
+    pub fn delete_path(path: &Path, conn: &Connection) -> Result<usize, Error> {
         let mut stmt = conn.prepare("DELETE FROM media WHERE filepath = :filepath")?;
         stmt.execute(named_params! {
-            ":filepath": self.filepath,
+            ":filepath": PathBufSql::from(path),
         })
     }
 

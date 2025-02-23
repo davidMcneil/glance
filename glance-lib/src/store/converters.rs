@@ -2,7 +2,10 @@
 
 use blake3::Hash;
 use derive_more::{From, Into};
-use std::{ffi::OsStr, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef},
@@ -59,5 +62,17 @@ impl ToSql for PathBufSql {
 impl FromSql for PathBufSql {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         Ok(PathBufSql(PathBuf::from(value.as_str()?)))
+    }
+}
+
+impl From<&Path> for PathBufSql {
+    fn from(value: &Path) -> Self {
+        Self(value.into())
+    }
+}
+
+impl<'a> From<&'a PathBufSql> for &'a Path {
+    fn from(value: &'a PathBufSql) -> Self {
+        value.0.as_path()
     }
 }

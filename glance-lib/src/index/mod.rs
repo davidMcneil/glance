@@ -37,6 +37,8 @@ mod tests;
 
 #[derive(Debug, Error, Display)]
 pub enum Error {
+    /// exif: {0}
+    Exif(#[from] exif::Error),
     /// exiftool: {0}
     Exiftool(#[from] exiftool::Error),
     /// hashing enabled but hash missing from media row
@@ -193,9 +195,9 @@ impl Index {
                 match file_to_media_row(&entry, existing.as_ref(), config, &logger) {
                     Ok(FileToMediaRowResult::New {
                         media,
+                        used_exiftool_fallback,
                         failed_to_read_exif,
                         failed_to_determine_created_from_exif,
-                        used_exiftool_fallback,
                         failed_to_determine_created,
                     }) => {
                         trace!(logger, "adding file");
@@ -273,7 +275,7 @@ impl Index {
     }
 
     /// Remove files that do not exist on the filesystem from the index
-    pub fn remove_missing(&mut self) -> Result<(), Error> {
+    pub fn deindex_missing(&mut self) -> Result<(), Error> {
         let logger = &self.logger;
         info!(logger, "removing missing files");
         let mut removed = 0u64;
@@ -293,6 +295,20 @@ impl Index {
         info!(logger, "removed missing files";
             "removed" => removed,
         );
+        Ok(())
+    }
+
+    pub fn deindex_paths<I, P>(&mut self, paths: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        let transaction = self.connection.transaction()?;
+        for path in paths {
+            // TODO: support directories
+            MediaSql::delete_path(path.as_ref(), &transaction)?;
+        }
+        transaction.commit()?;
         Ok(())
     }
 
@@ -524,8 +540,8 @@ enum FileToMediaRowResult {
     New {
         media: Media,
         used_exiftool_fallback: bool,
-        failed_to_determine_created_from_exif: bool,
         failed_to_read_exif: bool,
+        failed_to_determine_created_from_exif: bool,
         failed_to_determine_created: bool,
     },
 }
