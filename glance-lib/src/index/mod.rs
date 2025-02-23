@@ -78,7 +78,6 @@ pub struct AddDirectoryConfig {
     /// Filter contents to only include images and videos
     pub filter_by_media: bool,
     /// Use the modified time of the file if created is not set in exif data
-    // TODO: seems this uses file created time not modified
     pub metadata_fallback_for_created: bool,
     /// Calculate the nearest city based on the exif GPS data
     pub calculate_nearest_city: bool,
@@ -156,8 +155,10 @@ impl Index {
         let mut added = 0u64;
         let mut unmodifed = 0u64;
         let mut filtered_due_to_filetype = 0u64;
-        let mut failed_to_read_exif = 0u64;
-        let mut failed_to_determine_created_from_exif = 0u64;
+        let mut used_exiftool_fallback_count = 0u64;
+        let mut failed_to_read_exif_count = 0u64;
+        let mut failed_to_determine_created_from_exif_count = 0u64;
+        let mut failed_to_determine_created_count = 0u64;
         let mut failed = 0u64;
         let transaction = self.connection.transaction()?;
         for entry in WalkDir::new(path) {
@@ -176,8 +177,7 @@ impl Index {
             }
 
             if entry.file_type().is_file() {
-                let file_name = entry.file_name();
-                if file_name == "glance.db" {
+                if entry.file_name() == "glance.db" {
                     continue;
                 }
 
@@ -193,19 +193,27 @@ impl Index {
                 match file_to_media_row(&entry, existing.as_ref(), config, &logger) {
                     Ok(FileToMediaRowResult::New {
                         media,
-                        failed_to_read_exif: f_to_read_exif,
-                        failed_to_determine_created_from_exif: f_to_determine_created_from_exif,
+                        failed_to_read_exif,
+                        failed_to_determine_created_from_exif,
+                        used_exiftool_fallback,
+                        failed_to_determine_created,
                     }) => {
                         trace!(logger, "adding file");
-                        if f_to_read_exif {
-                            failed_to_read_exif += 1;
+                        if used_exiftool_fallback {
+                            used_exiftool_fallback_count += 1;
                         }
-                        if f_to_determine_created_from_exif {
-                            failed_to_determine_created_from_exif += 1;
+                        if failed_to_read_exif {
+                            failed_to_read_exif_count += 1;
+                        }
+                        if failed_to_determine_created_from_exif {
+                            failed_to_determine_created_from_exif_count += 1;
+                        }
+                        if failed_to_determine_created {
+                            failed_to_determine_created_count += 1;
                         }
                         let inserted = MediaSql::from(media).insert(&transaction)?;
                         if !inserted {
-                            error!(logger, "failed to add file");
+                            error!(logger, "failed to insert media row");
                             failed += 1;
                             continue;
                         }
@@ -239,8 +247,10 @@ impl Index {
             "added" => added,
             "unmodifed" => unmodifed,
             "filtered_due_to_filetype" => filtered_due_to_filetype,
-            "failed_to_read_exif" => failed_to_read_exif,
-            "failed_to_determine_created_from_exif" => failed_to_determine_created_from_exif,
+            "used_exiftool_fallback" => used_exiftool_fallback_count,
+            "failed_to_read_exif" => failed_to_read_exif_count,
+            "failed_to_determine_created_from_exif" => failed_to_determine_created_from_exif_count,
+            "failed_to_determine_created" => failed_to_determine_created_count,
             "failed" => failed,
         );
         Ok(())
@@ -513,8 +523,10 @@ enum FileToMediaRowResult {
     SkippedFileType,
     New {
         media: Media,
+        used_exiftool_fallback: bool,
         failed_to_determine_created_from_exif: bool,
         failed_to_read_exif: bool,
+        failed_to_determine_created: bool,
     },
 }
 
@@ -527,8 +539,10 @@ impl FileToMediaRowResult {
         match self {
             Self::New {
                 media,
-                failed_to_determine_created_from_exif: _,
+                used_exiftool_fallback: _,
                 failed_to_read_exif: _,
+                failed_to_determine_created_from_exif: _,
+                failed_to_determine_created: _,
             } => Ok(media),
             _ => Err(err()),
         }
@@ -581,8 +595,10 @@ fn file_to_media_row(
     let mut created = None;
     let mut device = None;
     let mut location = None;
+    let mut used_exiftool_fallback = false;
     let mut failed_to_read_exif = false;
     let mut failed_to_determine_created_from_exif = false;
+    let mut failed_to_determine_created = false;
     match exif {
         Ok(exif) => {
             if let Some(date_taken) = exif
@@ -605,12 +621,18 @@ fn file_to_media_row(
                 location = get_location_from_exif(&exif);
             }
         }
-        Err(e) => {
+        Err(e1) => {
             if config.use_exiftool {
-                let exif = ExiftoolData::get(&filepath, logger)?;
-                created = exif.created;
+                used_exiftool_fallback = true;
+                match ExiftoolData::get(&filepath, logger) {
+                    Ok(exif) => created = exif.created,
+                    Err(e2) => {
+                        error!(logger, "failed reading exif"; "exiflib_error" => %e1, "exiftool_error" => %e2);
+                        failed_to_read_exif = true;
+                    }
+                };
             } else {
-                error!(logger, "failed reading exif"; "error" => %e);
+                error!(logger, "failed reading exif"; "error" => %e1);
                 failed_to_read_exif = true;
             }
         }
@@ -627,7 +649,8 @@ fn file_to_media_row(
             .map(DateTime::<Utc>::from);
     }
     if created.is_none() {
-        error!(logger, "failed to get created");
+        failed_to_determine_created = true;
+        error!(logger, "failed to determine created");
     }
 
     Ok(FileToMediaRowResult::New {
@@ -641,8 +664,10 @@ fn file_to_media_row(
             device,
             hash,
         },
+        used_exiftool_fallback,
         failed_to_read_exif,
         failed_to_determine_created_from_exif,
+        failed_to_determine_created,
     })
 }
 

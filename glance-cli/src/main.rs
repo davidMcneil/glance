@@ -22,7 +22,9 @@ struct Args {
     /// Path to save the media db index
     #[arg(long, default_value = default_main_index_path())]
     index: PathBuf,
-    /// Enable hashing of files when storing in index
+    /// Disable hashing of files when storing in index
+    ///
+    /// This drasticly speeds up the initial indexing
     #[arg(long)]
     disable_hash: bool,
     /// Use the file created time if the created time is not set in exif data
@@ -35,9 +37,9 @@ struct Args {
     /// Calculate the nearest city from exif data
     #[arg(long)]
     calculate_nearest_city: bool,
-    /// Use exiftool cli
+    /// Disable using the exiftool cli fallback when the library fails
     #[arg(long)]
-    use_exiftool: bool,
+    disable_exiftool: bool,
     /// Log level
     #[arg(long)]
     log_level: Option<Severity>,
@@ -139,7 +141,7 @@ fn main() -> Result<()> {
         filter_by_media: args.filter_by_media_type,
         metadata_fallback_for_created: args.metadata_fallback_for_created,
         calculate_nearest_city: args.calculate_nearest_city,
-        use_exiftool: args.use_exiftool,
+        use_exiftool: !args.disable_exiftool,
     };
 
     match args.command {
