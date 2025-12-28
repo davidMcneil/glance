@@ -162,7 +162,7 @@ fn main() -> Result<()> {
             index.deindex_missing()?;
         }
         Command::Import(sub_args) => {
-            if !args.disable_hash {
+            if args.disable_hash {
                 // TODO: we could recompute the hashes
                 return Err(anyhow!("Cannot import media without calculating the hash"));
             }
