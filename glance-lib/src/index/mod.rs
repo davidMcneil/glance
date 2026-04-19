@@ -513,11 +513,16 @@ impl Index {
         })?;
         let label_folder = format!("{path_to_index}/glance-exports/{label}");
         fs::create_dir_all(label_folder.clone())?;
+        let mut i = 0;
         for media in labeled_media {
             let file_name = media.file_name()?;
             if let Some(file_name) = file_name.to_str() {
-                symlink(&media.filepath, format!("{label_folder}/{file_name}"))?;
+                info!(self.logger, "image";
+                    "name" => format!("{label_folder}/{i}_{filename}"),
+                );
+                symlink(&media.filepath, format!("{label_folder}/{i}_{file_name}"))?;
             }
+            i += 1;
         }
         info!(self.logger, "exported all images with label";
             "label" => label,

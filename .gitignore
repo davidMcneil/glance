@@ -1,3 +1,4 @@
 target/
 test-dbs/
 *.db
+glance-ui/glance-exports
