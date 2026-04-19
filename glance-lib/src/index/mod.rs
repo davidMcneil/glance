@@ -518,7 +518,7 @@ impl Index {
             let file_name = media.file_name()?;
             if let Some(file_name) = file_name.to_str() {
                 info!(self.logger, "image";
-                    "name" => format!("{label_folder}/{i}_{filename}"),
+                    "name" => format!("{label_folder}/{i}_{file_name}"),
                 );
                 symlink(&media.filepath, format!("{label_folder}/{i}_{file_name}"))?;
             }
